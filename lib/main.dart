@@ -25,6 +25,8 @@ class SalaryFlowApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final appState = Provider.of<AppState>(context, listen: false);
+
     return MaterialApp(
       title: 'SalaryFlow',
       debugShowCheckedModeBanner: false,
@@ -55,8 +57,38 @@ class MainNavigationShell extends StatefulWidget {
 class _MainNavigationShellState extends State<MainNavigationShell> {
   int _currentIndex = 0;
 
+  String _getNavLabel(int index, bool isRtl) {
+    if (isRtl) {
+      switch (index) {
+        case 0:
+          return 'سەرەکی';
+        case 1:
+          return 'تۆمارەکان';
+        case 2:
+          return 'شیکاری';
+        case 3:
+          return 'ڕێکخستنەکان';
+      }
+    } else {
+      switch (index) {
+        case 0:
+          return 'Home';
+        case 1:
+          return 'History';
+        case 2:
+          return 'Analysis';
+        case 3:
+          return 'Settings';
+      }
+    }
+    return '';
+  }
+
   @override
   Widget build(BuildContext context) {
+    final appState = context.watch<AppState>();
+    final isRtl = appState.isRtl;
+
     final List<Widget> pages = [
       DashboardPage(
         onViewAllTransactions: () {
@@ -70,14 +102,18 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
       const SettingsPage(),
     ];
 
-    return Scaffold(
-      extendBody: true, // Extends pages behind bottom navigation bar for glassmorphic overlap
-      body: pages[_currentIndex],
-      bottomNavigationBar: _buildFloatingNavBar(context),
+    // Directionality dynamically toggles TextDirection at layout root
+    return Directionality(
+      textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
+      child: Scaffold(
+        extendBody: true,
+        body: pages[_currentIndex],
+        bottomNavigationBar: _buildFloatingNavBar(context, isRtl),
+      ),
     );
   }
 
-  Widget _buildFloatingNavBar(BuildContext context) {
+  Widget _buildFloatingNavBar(BuildContext context, bool isRtl) {
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
@@ -105,10 +141,10 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _buildNavItem(0, Icons.grid_view_rounded, 'Home'),
-                  _buildNavItem(1, Icons.receipt_long_rounded, 'History'),
-                  _buildNavItem(2, Icons.analytics_rounded, 'Analysis'),
-                  _buildNavItem(3, Icons.settings_rounded, 'Settings'),
+                  _buildNavItem(0, Icons.grid_view_rounded, _getNavLabel(0, isRtl)),
+                  _buildNavItem(1, Icons.receipt_long_rounded, _getNavLabel(1, isRtl)),
+                  _buildNavItem(2, Icons.analytics_rounded, _getNavLabel(2, isRtl)),
+                  _buildNavItem(3, Icons.settings_rounded, _getNavLabel(3, isRtl)),
                 ],
               ),
             ),

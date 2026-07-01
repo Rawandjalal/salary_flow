@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../state/app_state.dart';
 import '../widgets/transaction_tile.dart';
+import 'excel_builder_page.dart';
 
 class TransactionsPage extends StatefulWidget {
   const TransactionsPage({super.key});
@@ -26,6 +28,47 @@ class _TransactionsPageState extends State<TransactionsPage> {
     'Salary',
     'Other'
   ];
+
+  String _getFilterTranslation(BuildContext context, String filter) {
+    final appState = Provider.of<AppState>(context, listen: false);
+    if (filter == 'All') return appState.isRtl ? 'هەموو' : 'All';
+    if (filter == 'Income') return appState.t('income');
+    return appState.t('expense');
+  }
+
+  String _getCategoryTranslation(BuildContext context, String category) {
+    final appState = Provider.of<AppState>(context, listen: false);
+    if (category == 'All') return appState.isRtl ? 'هەموو' : 'All';
+    switch (category) {
+      case 'Food':
+        return appState.t('food');
+      case 'Transport':
+        return appState.t('transport');
+      case 'Rent':
+        return appState.t('rent');
+      case 'Entertainment':
+        return appState.t('entertainment');
+      case 'Shopping':
+        return appState.t('shopping');
+      case 'Utilities':
+        return appState.t('utilities');
+      case 'Salary':
+        return appState.t('salary');
+      default:
+        return appState.t('other');
+    }
+  }
+
+  void _copyCsvReport(BuildContext context, AppState appState) {
+    final csvData = appState.exportToCsv();
+    Clipboard.setData(ClipboardData(text: csvData));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(appState.t('copied')),
+        backgroundColor: const Color(0xFF10B981),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -57,17 +100,32 @@ class _TransactionsPageState extends State<TransactionsPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Title Header
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                child: Text(
-                  'Transactions',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w900,
-                    color: Colors.white,
-                    letterSpacing: -0.5,
-                  ),
+              // Title Header & CSV Export Row
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      appState.t('recent_transactions'),
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.table_chart_rounded, color: Color(0xFF10B981), size: 24),
+                      tooltip: appState.t('excel_wizard'),
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const ExcelBuilderPage()),
+                        );
+                      },
+                    ),
+                  ],
                 ),
               ),
 
@@ -82,7 +140,7 @@ class _TransactionsPageState extends State<TransactionsPage> {
                     });
                   },
                   decoration: InputDecoration(
-                    hintText: 'Search transactions...',
+                    hintText: appState.isRtl ? 'گەڕان بۆ مامەڵەکان...' : 'Search transactions...',
                     hintStyle: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 14),
                     prefixIcon: Icon(Icons.search_rounded, color: Colors.white.withOpacity(0.3)),
                     filled: true,
@@ -144,7 +202,7 @@ class _TransactionsPageState extends State<TransactionsPage> {
                           ),
                           alignment: Alignment.center,
                           child: Text(
-                            category,
+                            _getCategoryTranslation(context, category),
                             style: TextStyle(
                               color: isSelected ? Colors.white : Colors.white.withOpacity(0.6),
                               fontWeight: FontWeight.w700,
@@ -173,7 +231,7 @@ class _TransactionsPageState extends State<TransactionsPage> {
                             ),
                             const SizedBox(height: 16),
                             Text(
-                              'No matching transactions',
+                              appState.isRtl ? 'هیچ ئەنجامێک نەدۆزرایەوە' : 'No matching transactions',
                               style: TextStyle(
                                 color: Colors.white.withOpacity(0.35),
                                 fontWeight: FontWeight.w600,
@@ -221,7 +279,7 @@ class _TransactionsPageState extends State<TransactionsPage> {
           ),
           alignment: Alignment.center,
           child: Text(
-            type,
+            _getFilterTranslation(context, type),
             style: TextStyle(
               color: isSelected ? Colors.white : Colors.white.withOpacity(0.4),
               fontWeight: FontWeight.w700,

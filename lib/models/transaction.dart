@@ -7,6 +7,8 @@ class Transaction {
   final bool isIncome;
   final String category;
   final DateTime date;
+  final String description;
+  final String currency; // 'USD' or 'IQD'
 
   Transaction({
     required this.id,
@@ -15,6 +17,8 @@ class Transaction {
     required this.isIncome,
     required this.category,
     required this.date,
+    this.description = '',
+    this.currency = 'USD', // Default to USD for old stored items compatibility
   });
 
   Map<String, dynamic> toMap() {
@@ -25,6 +29,8 @@ class Transaction {
       'isIncome': isIncome,
       'category': category,
       'date': date.toIso8601String(),
+      'description': description,
+      'currency': currency,
     };
   }
 
@@ -36,6 +42,8 @@ class Transaction {
       isIncome: map['isIncome'] ?? false,
       category: map['category'] ?? 'Other',
       date: DateTime.parse(map['date'] ?? DateTime.now().toIso8601String()),
+      description: map['description'] ?? '',
+      currency: map['currency'] ?? 'USD', // Default to USD if missing
     );
   }
 

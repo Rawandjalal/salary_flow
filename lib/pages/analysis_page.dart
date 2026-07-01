@@ -3,7 +3,9 @@ import 'package:provider/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import '../state/app_state.dart';
+import '../models/transaction.dart';
 import '../widgets/glass_card.dart';
+import '../widgets/financial_health_gauge.dart';
 
 class AnalysisPage extends StatefulWidget {
   const AnalysisPage({super.key});
@@ -14,6 +16,7 @@ class AnalysisPage extends StatefulWidget {
 
 class _AnalysisPageState extends State<AnalysisPage> {
   int touchedIndex = -1;
+  String _activeCurrency = 'USD'; // 'USD' or 'IQD' to segment analysis charts
 
   Color _getCategoryColor(String category) {
     switch (category) {
@@ -33,6 +36,28 @@ class _AnalysisPageState extends State<AnalysisPage> {
         return Colors.greenAccent;
       default:
         return Colors.grey;
+    }
+  }
+
+  String _getCategoryTranslation(BuildContext context, String category) {
+    final appState = Provider.of<AppState>(context, listen: false);
+    switch (category) {
+      case 'Food':
+        return appState.t('food');
+      case 'Transport':
+        return appState.t('transport');
+      case 'Rent':
+        return appState.t('rent');
+      case 'Entertainment':
+        return appState.t('entertainment');
+      case 'Shopping':
+        return appState.t('shopping');
+      case 'Utilities':
+        return appState.t('utilities');
+      case 'Salary':
+        return appState.t('salary');
+      default:
+        return appState.t('other');
     }
   }
 
@@ -73,16 +98,70 @@ class _AnalysisPageState extends State<AnalysisPage> {
     }).toList();
   }
 
+  List<FlSpot> _getSpendingTrendSpots(List<Transaction> transactions, int days, String currency) {
+    final now = DateTime.now();
+    final dailyTotals = Map<int, double>.fromIterable(
+      List.generate(days, (i) => i + 1),
+      key: (item) => item as int,
+      value: (item) => 0.0,
+    );
+
+    for (var tx in transactions) {
+      if (!tx.isIncome && tx.currency == currency && tx.date.year == now.year && tx.date.month == now.month) {
+        final day = tx.date.day;
+        dailyTotals[day] = (dailyTotals[day] ?? 0.0) + tx.amount;
+      }
+    }
+
+    return dailyTotals.entries.map((entry) {
+      return FlSpot(entry.key.toDouble(), entry.value);
+    }).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     final appState = context.watch<AppState>();
-    final currencyFormat = NumberFormat.simpleCurrency();
-    final breakdown = appState.categoryExpensesBreakdown;
 
-    final income = appState.totalMonthlyIncome;
-    final expense = appState.totalMonthlyExpenses;
-    final netSavings = appState.monthlySavingsRealized;
+    // Currency Formatter resolving
+    final isUsd = _activeCurrency == 'USD';
+    final activeSymbol = isUsd ? '\$' : 'د.ع';
+    final activeDecimals = isUsd ? 2 : 0;
+
+    final currencyFormat = NumberFormat.currency(
+      symbol: activeSymbol,
+      decimalDigits: activeDecimals,
+    );
+
+    // Resolve Breakdown Map
+    final breakdown = appState.getCategoryExpensesBreakdown(_activeCurrency);
+
+    // Resolve Cash Flow metrics
+    final income = isUsd ? appState.totalMonthlyIncomeUSD : appState.totalMonthlyIncomeIQD;
+    final expense = isUsd ? appState.totalMonthlyExpensesUSD : appState.totalMonthlyExpensesIQD;
+    final netSavings = isUsd ? appState.monthlySavingsRealizedUSD : appState.monthlySavingsRealizedIQD;
     final burnRate = income > 0 ? (expense / income).clamp(0.0, 1.0) : 0.0;
+
+    // Resolve Health Index
+    final healthScore = isUsd ? appState.financialHealthScoreUSD : appState.financialHealthScoreIQD;
+    String healthFeedback = appState.t('health_poor');
+    if (healthScore >= 80) {
+      healthFeedback = appState.t('health_excellent');
+    } else if (healthScore >= 50) {
+      healthFeedback = appState.t('health_good');
+    } else if (healthScore >= 30) {
+      healthFeedback = appState.t('health_fair');
+    }
+
+    // Line Chart Spots
+    final daysInCurrentMonth = appState.daysInMonth;
+    final trendSpots = _getSpendingTrendSpots(appState.transactions, daysInCurrentMonth, _activeCurrency);
+
+    double maxSpentOnADay = 100.0;
+    for (var spot in trendSpots) {
+      if (spot.y > maxSpentOnADay) {
+        maxSpentOnADay = spot.y;
+      }
+    }
 
     return Scaffold(
       body: Container(
@@ -100,25 +179,106 @@ class _AnalysisPageState extends State<AnalysisPage> {
           child: ListView(
             padding: const EdgeInsets.all(20),
             children: [
-              const Text(
-                'Analysis',
-                style: TextStyle(
+              Text(
+                appState.t('analysis'),
+                style: const TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.w900,
                   color: Colors.white,
                   letterSpacing: -0.5,
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 18),
+
+              // Wallet Analysis Toggle Buttons
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.03),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.white.withOpacity(0.06)),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => setState(() => _activeCurrency = 'USD'),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          decoration: BoxDecoration(
+                            color: isUsd ? Colors.white.withOpacity(0.08) : Colors.transparent,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          alignment: Alignment.center,
+                          child: Text(
+                            appState.isRtl ? 'دۆلار (\$)' : 'USD (\$)',
+                            style: TextStyle(
+                              color: isUsd ? Colors.white : Colors.white.withOpacity(0.4),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => setState(() => _activeCurrency = 'IQD'),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          decoration: BoxDecoration(
+                            color: !isUsd ? Colors.white.withOpacity(0.08) : Colors.transparent,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          alignment: Alignment.center,
+                          child: Text(
+                            appState.isRtl ? 'دینار (د.ع)' : 'IQD (د.ع)',
+                            style: TextStyle(
+                              color: !isUsd ? Colors.white : Colors.white.withOpacity(0.4),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Financial Health Gauge Card
+              Text(
+                appState.t('financial_health'),
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white.withOpacity(0.4),
+                  letterSpacing: 1.5,
+                ),
+              ),
+              const SizedBox(height: 12),
+              GlassCard(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  child: FinancialHealthGauge(
+                    score: healthScore,
+                    feedbackText: healthFeedback,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
 
               // Overview Cards
               GlassCard(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Text(
-                      'MONTHLY CASH FLOW',
-                      style: TextStyle(
+                    Text(
+                      appState.t('cash_flow'),
+                      style: const TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.w700,
                         color: Colors.white54,
@@ -129,28 +289,27 @@ class _AnalysisPageState extends State<AnalysisPage> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        _buildFlowMetric('Total Income', income, const Color(0xFF10B981)),
+                        _buildFlowMetric(appState.t('flow_income'), income, const Color(0xFF10B981), currencyFormat),
                         Container(
                           width: 1,
                           height: 40,
                           color: Colors.white.withOpacity(0.08),
                         ),
-                        _buildFlowMetric('Total Spend', expense, const Color(0xFFEF4444)),
+                        _buildFlowMetric(appState.t('flow_spend'), expense, const Color(0xFFEF4444), currencyFormat),
                         Container(
                           width: 1,
                           height: 40,
                           color: Colors.white.withOpacity(0.08),
                         ),
-                        _buildFlowMetric('Net Savings', netSavings, Colors.white),
+                        _buildFlowMetric(appState.t('flow_savings'), netSavings, Colors.white, currencyFormat),
                       ],
                     ),
                     const SizedBox(height: 24),
-                    // Consumption Bar Indicator
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          'Income Consumed',
+                          appState.t('burn_rate'),
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
@@ -182,9 +341,108 @@ class _AnalysisPageState extends State<AnalysisPage> {
               ),
               const SizedBox(height: 24),
 
-              // Pie Chart Card
+              // Daily Spending Trend Line Chart
               Text(
-                'SPENDING BREAKDOWN',
+                appState.isRtl ? 'ڕەوتی خەرجی ڕۆژانە' : 'DAILY SPENDING TREND',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white.withOpacity(0.4),
+                  letterSpacing: 1.5,
+                ),
+              ),
+              const SizedBox(height: 12),
+              GlassCard(
+                child: SizedBox(
+                  height: 180,
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 15, right: 10, left: 5, bottom: 5),
+                    child: LineChart(
+                      LineChartData(
+                        gridData: FlGridData(
+                          show: true,
+                          drawVerticalLine: false,
+                          getDrawingHorizontalLine: (value) => FlLine(
+                            color: Colors.white.withOpacity(0.05),
+                            strokeWidth: 1,
+                          ),
+                        ),
+                        titlesData: FlTitlesData(
+                          show: true,
+                          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                          bottomTitles: AxisTitles(
+                            sideTitles: SideTitles(
+                              showTitles: true,
+                              reservedSize: 22,
+                              interval: 7,
+                              getTitlesWidget: (value, meta) {
+                                return Text(
+                                  value.toInt().toString(),
+                                  style: TextStyle(
+                                    color: Colors.white.withOpacity(0.3),
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                          leftTitles: AxisTitles(
+                            sideTitles: SideTitles(
+                              showTitles: true,
+                              reservedSize: 42,
+                              getTitlesWidget: (value, meta) {
+                                return Text(
+                                  currencyFormat.format(value),
+                                  style: TextStyle(
+                                    color: Colors.white.withOpacity(0.3),
+                                    fontSize: 8,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                        borderData: FlBorderData(show: false),
+                        minX: 1,
+                        maxX: daysInCurrentMonth.toDouble(),
+                        minY: 0,
+                        maxY: maxSpentOnADay * 1.15,
+                        lineBarsData: [
+                          LineChartBarData(
+                            spots: trendSpots,
+                            isCurved: true,
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFFEF4444), Color(0xFFF59E0B)],
+                            ),
+                            barWidth: 3.5,
+                            isStrokeCapRound: true,
+                            dotData: const FlDotData(show: false),
+                            belowBarData: BarAreaData(
+                              show: true,
+                              gradient: LinearGradient(
+                                colors: [
+                                  const Color(0xFFEF4444).withOpacity(0.2),
+                                  const Color(0xFFF59E0B).withOpacity(0.02),
+                                ],
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Pie Chart Card (Spending Breakdown)
+              Text(
+                appState.t('spending_breakdown'),
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w800,
@@ -208,7 +466,7 @@ class _AnalysisPageState extends State<AnalysisPage> {
                             ),
                             const SizedBox(height: 12),
                             Text(
-                              'No expense data to analyze yet',
+                              appState.t('no_expense_data'),
                               style: TextStyle(
                                 color: Colors.white.withOpacity(0.4),
                                 fontWeight: FontWeight.w600,
@@ -250,6 +508,7 @@ class _AnalysisPageState extends State<AnalysisPage> {
                             final total = breakdown.values.fold(0.0, (sum, val) => sum + val);
                             final pct = (entry.value / total) * 100;
                             final color = _getCategoryColor(entry.key);
+                            final localizedCatName = _getCategoryTranslation(context, entry.key);
                             return Padding(
                               padding: const EdgeInsets.only(bottom: 8.0),
                               child: Row(
@@ -264,7 +523,7 @@ class _AnalysisPageState extends State<AnalysisPage> {
                                   ),
                                   const SizedBox(width: 10),
                                   Text(
-                                    entry.key,
+                                    localizedCatName,
                                     style: const TextStyle(
                                       color: Colors.white,
                                       fontWeight: FontWeight.w600,
@@ -276,7 +535,7 @@ class _AnalysisPageState extends State<AnalysisPage> {
                                     currencyFormat.format(entry.value),
                                     style: TextStyle(
                                       color: Colors.white.withOpacity(0.7),
-                                      fontWeight: FontWeight.w500,
+                                      fontWeight: FontWeight.w600,
                                       fontSize: 13,
                                     ),
                                   ),
@@ -295,7 +554,7 @@ class _AnalysisPageState extends State<AnalysisPage> {
                         ],
                       ),
               ),
-              const SizedBox(height: 30),
+              const SizedBox(height: 100),
             ],
           ),
         ),
@@ -303,8 +562,7 @@ class _AnalysisPageState extends State<AnalysisPage> {
     );
   }
 
-  Widget _buildFlowMetric(String title, double value, Color valColor) {
-    final currencyFormat = NumberFormat.simpleCurrency();
+  Widget _buildFlowMetric(String title, double value, Color valColor, NumberFormat currencyFormat) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -320,7 +578,7 @@ class _AnalysisPageState extends State<AnalysisPage> {
         Text(
           currencyFormat.format(value),
           style: TextStyle(
-            fontSize: 15,
+            fontSize: 14,
             fontWeight: FontWeight.w800,
             color: valColor,
           ),

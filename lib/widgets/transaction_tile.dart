@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+import '../state/app_state.dart';
 import '../models/transaction.dart';
 
 class TransactionTile extends StatelessWidget {
@@ -54,9 +56,39 @@ class TransactionTile extends StatelessWidget {
     }
   }
 
+  String _getCategoryTranslation(BuildContext context, String category) {
+    final appState = Provider.of<AppState>(context, listen: false);
+    switch (category) {
+      case 'Food':
+        return appState.t('food');
+      case 'Transport':
+        return appState.t('transport');
+      case 'Rent':
+        return appState.t('rent');
+      case 'Entertainment':
+        return appState.t('entertainment');
+      case 'Shopping':
+        return appState.t('shopping');
+      case 'Utilities':
+        return appState.t('utilities');
+      case 'Salary':
+        return appState.t('salary');
+      default:
+        return appState.t('other');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final currencyFormat = NumberFormat.simpleCurrency();
+    // Dynamic currency formatting based on the transaction's currency
+    final isUsd = transaction.currency == 'USD';
+    final activeSymbol = isUsd ? '\$' : 'د.ع';
+    final decimalDigits = isUsd ? 2 : 0;
+    final currencyFormat = NumberFormat.currency(
+      symbol: activeSymbol,
+      decimalDigits: decimalDigits,
+    );
+    
     final dateFormat = DateFormat('MMM dd, yyyy');
 
     return Container(
@@ -70,7 +102,7 @@ class TransactionTile extends StatelessWidget {
         ),
       ),
       child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         leading: Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
@@ -83,19 +115,38 @@ class TransactionTile extends StatelessWidget {
             size: 20,
           ),
         ),
-        title: Text(
-          transaction.title,
-          style: const TextStyle(
-            fontWeight: FontWeight.w600,
-            fontSize: 15,
-            color: Colors.white,
-          ),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              transaction.title,
+              style: const TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 15,
+                color: Colors.white,
+              ),
+            ),
+            if (transaction.description.isNotEmpty) ...[
+              const SizedBox(height: 3),
+              Text(
+                transaction.description,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontStyle: FontStyle.italic,
+                  color: Colors.white.withOpacity(0.45),
+                ),
+              ),
+            ],
+          ],
         ),
-        subtitle: Text(
-          '${transaction.category} • ${dateFormat.format(transaction.date)}',
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.white.withOpacity(0.4),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 6.0),
+          child: Text(
+            '${_getCategoryTranslation(context, transaction.category)} • ${dateFormat.format(transaction.date)}',
+            style: TextStyle(
+              fontSize: 11,
+              color: Colors.white.withOpacity(0.35),
+            ),
           ),
         ),
         trailing: Row(
