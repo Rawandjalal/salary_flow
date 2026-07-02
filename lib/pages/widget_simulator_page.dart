@@ -414,6 +414,23 @@ class _WidgetSimulatorPageState extends State<WidgetSimulatorPage> {
                 ),
               ),
 
+              const SizedBox(height: 16),
+              Center(
+                child: TextButton.icon(
+                  onPressed: () => _showSetupBottomSheet(context),
+                  icon: const Icon(Icons.help_outline_rounded, color: Colors.amberAccent, size: 18),
+                  label: Text(
+                    isRtl ? 'چۆن وێجێتی ڕاستەقینە دابنێم لەسەر شاشەی ئایفۆنەکەم؟' : 'How to add real widget to iPhone home screen?',
+                    style: const TextStyle(
+                      color: Colors.amberAccent,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      decoration: TextDecoration.underline,
+                    ),
+                  ),
+                ),
+              ),
+
               const SizedBox(height: 24),
 
               // Widget Customizer options
@@ -619,6 +636,136 @@ class _WidgetSimulatorPageState extends State<WidgetSimulatorPage> {
             child: Text(
               text,
               style: TextStyle(fontSize: 11.5, color: Colors.white.withOpacity(0.85), height: 1.4),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showSetupBottomSheet(BuildContext context) {
+    final appState = Provider.of<AppState>(context, listen: false);
+    final isRtl = appState.isRtl;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF111422),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.all(24.0),
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  isRtl ? 'چۆنیەتی زیادکردنی وێجێت' : 'How to Add Widget',
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  isRtl 
+                      ? 'سیستمی iOS ڕێگە نادات بە شێوەی ئۆتۆماتیکی وێجێت زیاد بکرێت. تکایە ئەم هەنگاوانە پەیڕەو بکە:' 
+                      : 'iOS does not support automatic widget pinning. Please follow these manual steps to add it:',
+                  style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.5)),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 20),
+                _buildModalStepRow('1', Icons.touch_app_rounded, Colors.amber, 
+                  isRtl ? 'شاشەی سەرەکی ئایفۆنەکەت دابگرە تاوەکو ئایکۆنەکان دەست بە لەرینەوە دەکەن.' : 'Press and hold your Home Screen background until icons wiggle.'),
+                _buildModalStepRow('2', Icons.add_circle_outline_rounded, Colors.blueAccent, 
+                  isRtl ? 'لە سەرەوە لای چەپ/ڕاست کلیک لە نیشانەی (+) بکە.' : 'Tap the (+) plus icon in the top corner.'),
+                _buildModalStepRow('3', Icons.search_rounded, Colors.purpleAccent, 
+                  isRtl ? 'بگەڕێ بۆ ناوی "SalaryFlow" لە لیستی بەرنامەکان.' : 'Search for "SalaryFlow" in the widget library.'),
+                _buildModalStepRow('4', Icons.crop_landscape_rounded, Colors.greenAccent, 
+                  isRtl ? 'قەبارەی مامناوەند (Medium) هەڵبژێرە و داگرە لەسەر Add Widget.' : 'Select the Medium widget layout and tap "Add Widget".'),
+                const SizedBox(height: 20),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.02),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.white.withOpacity(0.05)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.info_outline_rounded, color: Colors.amberAccent, size: 18),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          isRtl
+                              ? 'تێبینی: پاراستنی ئاسایشی ئەپڵ ئەم کردارەی سنووردار کردووە، بۆیە هیچ ئەپێک ناتوانێت وێجێت بە ئۆتۆماتیکی دابنێت.'
+                              : 'Note: iOS security strictly requires manual placement. No application can pin widgets automatically.',
+                          style: TextStyle(fontSize: 10.5, color: Colors.white.withOpacity(0.6), height: 1.3),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF1E2235),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  onPressed: () => Navigator.pop(context),
+                  child: Text(isRtl ? 'تێگەیشتم' : 'Got it'),
+                ),
+                const SizedBox(height: 10),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildModalStepRow(String step, IconData icon, Color color, String text) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.12),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: color, size: 18),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Step $step',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.white38),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  text,
+                  style: const TextStyle(fontSize: 13, color: Colors.white, height: 1.35),
+                ),
+              ],
             ),
           ),
         ],
