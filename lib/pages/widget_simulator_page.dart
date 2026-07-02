@@ -12,17 +12,35 @@ class WidgetSimulatorPage extends StatefulWidget {
 }
 
 class _WidgetSimulatorPageState extends State<WidgetSimulatorPage> {
-  // Widget Customizer States
-  String _widgetStyle = 'Glassmorphism'; // 'Glassmorphism', 'Neon Cyber', 'Deep Carbon'
   String _activeWallet = 'USD'; // 'USD' or 'IQD'
-  double _quickAdd1 = 20.0;
-  double _quickAdd2 = 50.0;
-  double _quickSub1 = 10.0;
-  double _quickSub2 = 25.0;
 
-  // Simulator Local state changes
+  // Simulator Local state changes for Lockscreen banner
   double _lastSimulatedChange = 0.0;
   String _lastSimulatedType = '';
+
+  late TextEditingController _add1Controller;
+  late TextEditingController _add2Controller;
+  late TextEditingController _sub1Controller;
+  late TextEditingController _sub2Controller;
+
+  @override
+  void initState() {
+    super.initState();
+    final appState = Provider.of<AppState>(context, listen: false);
+    _add1Controller = TextEditingController(text: appState.widgetQuickAdd1.toStringAsFixed(0));
+    _add2Controller = TextEditingController(text: appState.widgetQuickAdd2.toStringAsFixed(0));
+    _sub1Controller = TextEditingController(text: appState.widgetQuickSub1.toStringAsFixed(0));
+    _sub2Controller = TextEditingController(text: appState.widgetQuickSub2.toStringAsFixed(0));
+  }
+
+  @override
+  void dispose() {
+    _add1Controller.dispose();
+    _add2Controller.dispose();
+    _sub1Controller.dispose();
+    _sub2Controller.dispose();
+    super.dispose();
+  }
 
   void _triggerSimulatedAction(String type, double amount, bool isIncome) async {
     final appState = Provider.of<AppState>(context, listen: false);
@@ -67,23 +85,67 @@ class _WidgetSimulatorPageState extends State<WidgetSimulatorPage> {
     }
   }
 
+  void _savePresets() async {
+    final appState = Provider.of<AppState>(context, listen: false);
+    final add1 = double.tryParse(_add1Controller.text);
+    final add2 = double.tryParse(_add2Controller.text);
+    final sub1 = double.tryParse(_sub1Controller.text);
+    final sub2 = double.tryParse(_sub2Controller.text);
+
+    if (add1 == null || add2 == null || sub1 == null || sub2 == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(appState.t('invalid_numbers')),
+          backgroundColor: const Color(0xFFEF4444),
+        ),
+      );
+      return;
+    }
+
+    // Unfocus text fields to dismiss keyboard
+    FocusScope.of(context).unfocus();
+
+    await appState.saveWidgetPresets(
+      quickAdd1: add1,
+      quickAdd2: add2,
+      quickSub1: sub1,
+      quickSub2: sub2,
+    );
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(appState.t('widget_presets_saved')),
+          backgroundColor: const Color(0xFF10B981),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final appState = context.watch<AppState>();
     final isRtl = appState.isRtl;
     final symbol = _activeWallet == 'USD' ? '\$' : 'د.ع';
 
-    // Fetch dynamic numbers for the widget
+    // Fetch dynamic numbers for the widget from appState
     final isUsd = _activeWallet == 'USD';
     final remainingDaily = isUsd ? appState.remainingDailyBudgetUSD : appState.remainingDailyBudgetIQD;
     final runwayDays = isUsd ? appState.runwayForecastDaysUSD : appState.runwayForecastDaysIQD;
+
+    // Load presets from AppState
+    final qAdd1 = appState.widgetQuickAdd1;
+    final qAdd2 = appState.widgetQuickAdd2;
+    final qSub1 = appState.widgetQuickSub1;
+    final qSub2 = appState.widgetQuickSub2;
+    final wStyle = appState.widgetStyle;
 
     // Build the Widget design based on selected style
     BoxDecoration widgetDecoration;
     Color textColor = Colors.white;
     Color accentColor = const Color(0xFF10B981);
 
-    if (_widgetStyle == 'Neon Cyber') {
+    if (wStyle == 'Neon Cyber') {
       widgetDecoration = BoxDecoration(
         color: const Color(0xFF0D0E15),
         borderRadius: BorderRadius.circular(22),
@@ -93,7 +155,7 @@ class _WidgetSimulatorPageState extends State<WidgetSimulatorPage> {
         ],
       );
       accentColor = const Color(0xFFF43F5E);
-    } else if (_widgetStyle == 'Deep Carbon') {
+    } else if (wStyle == 'Deep Carbon') {
       widgetDecoration = BoxDecoration(
         color: const Color(0xFF161824),
         borderRadius: BorderRadius.circular(22),
@@ -242,24 +304,24 @@ class _WidgetSimulatorPageState extends State<WidgetSimulatorPage> {
                                       children: [
                                         Row(
                                           children: [
-                                            _buildWidgetActionButton('+$_quickAdd1', const Color(0xFF10B981), () {
-                                              _triggerSimulatedAction('Income', _quickAdd1, true);
+                                            _buildWidgetActionButton('+${qAdd1.toStringAsFixed(0)}', const Color(0xFF10B981), () {
+                                              _triggerSimulatedAction('Income', qAdd1, true);
                                             }),
                                             const SizedBox(width: 6),
-                                            _buildWidgetActionButton('+$_quickAdd2', const Color(0xFF10B981), () {
-                                              _triggerSimulatedAction('Income', _quickAdd2, true);
+                                            _buildWidgetActionButton('+${qAdd2.toStringAsFixed(0)}', const Color(0xFF10B981), () {
+                                              _triggerSimulatedAction('Income', qAdd2, true);
                                             }),
                                           ],
                                         ),
                                         const SizedBox(height: 6),
                                         Row(
                                           children: [
-                                            _buildWidgetActionButton('-$_quickSub1', const Color(0xFFEF4444), () {
-                                              _triggerSimulatedAction('Expense', _quickSub1, false);
+                                            _buildWidgetActionButton('-${qSub1.toStringAsFixed(0)}', const Color(0xFFEF4444), () {
+                                              _triggerSimulatedAction('Expense', qSub1, false);
                                             }),
                                             const SizedBox(width: 6),
-                                            _buildWidgetActionButton('-$_quickSub2', const Color(0xFFEF4444), () {
-                                              _triggerSimulatedAction('Expense', _quickSub2, false);
+                                            _buildWidgetActionButton('-${qSub2.toStringAsFixed(0)}', const Color(0xFFEF4444), () {
+                                              _triggerSimulatedAction('Expense', qSub2, false);
                                             }),
                                           ],
                                         ),
@@ -374,54 +436,44 @@ class _WidgetSimulatorPageState extends State<WidgetSimulatorPage> {
                     const SizedBox(height: 8),
                     Row(
                       children: [
-                        _buildStyleChip('Glassmorphism'),
+                        _buildStyleChip(context, 'Glassmorphism', wStyle),
                         const SizedBox(width: 8),
-                        _buildStyleChip('Neon Cyber'),
+                        _buildStyleChip(context, 'Neon Cyber', wStyle),
                         const SizedBox(width: 8),
-                        _buildStyleChip('Deep Carbon'),
+                        _buildStyleChip(context, 'Deep Carbon', wStyle),
                       ],
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 18),
 
                     // Quick presets fields
                     Text(
                       isRtl ? 'ڕێکخستنی بڕە خێراکان' : 'Customize Quick Preset Shortcuts',
                       style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.5)),
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 12),
                     Row(
                       children: [
                         Expanded(
                           child: TextFormField(
-                            initialValue: _quickAdd1.toStringAsFixed(0),
+                            controller: _add1Controller,
                             keyboardType: TextInputType.number,
                             decoration: InputDecoration(
-                              labelText: 'Income A',
+                              labelText: isRtl ? 'داهات ١' : 'Income A',
                               filled: true,
                               fillColor: Colors.white.withOpacity(0.02),
                             ),
-                            onChanged: (val) {
-                              setState(() {
-                                _quickAdd1 = double.tryParse(val) ?? 20.0;
-                              });
-                            },
                           ),
                         ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: TextFormField(
-                            initialValue: _quickAdd2.toStringAsFixed(0),
+                            controller: _add2Controller,
                             keyboardType: TextInputType.number,
                             decoration: InputDecoration(
-                              labelText: 'Income B',
+                              labelText: isRtl ? 'داهات ٢' : 'Income B',
                               filled: true,
                               fillColor: Colors.white.withOpacity(0.02),
                             ),
-                            onChanged: (val) {
-                              setState(() {
-                                _quickAdd2 = double.tryParse(val) ?? 50.0;
-                              });
-                            },
                           ),
                         ),
                       ],
@@ -431,38 +483,41 @@ class _WidgetSimulatorPageState extends State<WidgetSimulatorPage> {
                       children: [
                         Expanded(
                           child: TextFormField(
-                            initialValue: _quickSub1.toStringAsFixed(0),
+                            controller: _sub1Controller,
                             keyboardType: TextInputType.number,
                             decoration: InputDecoration(
-                              labelText: 'Expense A',
+                              labelText: isRtl ? 'خەرجی ١' : 'Expense A',
                               filled: true,
                               fillColor: Colors.white.withOpacity(0.02),
                             ),
-                            onChanged: (val) {
-                              setState(() {
-                                _quickSub1 = double.tryParse(val) ?? 10.0;
-                              });
-                            },
                           ),
                         ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: TextFormField(
-                            initialValue: _quickSub2.toStringAsFixed(0),
+                            controller: _sub2Controller,
                             keyboardType: TextInputType.number,
                             decoration: InputDecoration(
-                              labelText: 'Expense B',
+                              labelText: isRtl ? 'خەرجی ٢' : 'Expense B',
                               filled: true,
                               fillColor: Colors.white.withOpacity(0.02),
                             ),
-                            onChanged: (val) {
-                              setState(() {
-                                _quickSub2 = double.tryParse(val) ?? 25.0;
-                              });
-                            },
                           ),
                         ),
                       ],
+                    ),
+                    const SizedBox(height: 16),
+                    // Action button to Save Presets
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF10B981),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onPressed: _savePresets,
+                      icon: const Icon(Icons.save_rounded, size: 18),
+                      label: Text(appState.t('save_widget_presets'), style: const TextStyle(fontWeight: FontWeight.bold)),
                     ),
                   ],
                 ),
@@ -517,14 +572,13 @@ class _WidgetSimulatorPageState extends State<WidgetSimulatorPage> {
     );
   }
 
-  Widget _buildStyleChip(String name) {
-    final isSelected = _widgetStyle == name;
+  Widget _buildStyleChip(BuildContext context, String name, String currentStyle) {
+    final isSelected = currentStyle == name;
+    final appState = Provider.of<AppState>(context, listen: false);
     return Expanded(
       child: GestureDetector(
         onTap: () {
-          setState(() {
-            _widgetStyle = name;
-          });
+          appState.updateWidgetStyle(name);
         },
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 10),

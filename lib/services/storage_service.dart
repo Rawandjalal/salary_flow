@@ -56,6 +56,15 @@ class StorageService {
     await _prefs.setString(key, value);
   }
 
+  // Generic Double Getters & Setters
+  double? getDouble(String key) {
+    return _prefs.getDouble(key);
+  }
+
+  Future<void> saveDouble(String key, double value) async {
+    await _prefs.setDouble(key, value);
+  }
+
   // Clear data
   Future<void> clearAll() async {
     await _prefs.remove(_keyTransactions);

@@ -19,6 +19,13 @@ class AppState extends ChangeNotifier {
   List<StaffMember> _staffMembers = [];
   List<PayrollRecord> _payrollRecords = [];
 
+  // Widget customizer states
+  double _widgetQuickAdd1 = 20.0;
+  double _widgetQuickAdd2 = 50.0;
+  double _widgetQuickSub1 = 10.0;
+  double _widgetQuickSub2 = 25.0;
+  String _widgetStyle = 'Glassmorphism';
+
   AppState(this._storageService) {
     _loadFromStorage();
   }
@@ -27,10 +34,39 @@ class AppState extends ChangeNotifier {
   String get geminiApiKey => _geminiApiKey;
   List<StaffMember> get staffMembers => _staffMembers;
   List<PayrollRecord> get payrollRecords => _payrollRecords;
+  
+  double get widgetQuickAdd1 => _widgetQuickAdd1;
+  double get widgetQuickAdd2 => _widgetQuickAdd2;
+  double get widgetQuickSub1 => _widgetQuickSub1;
+  double get widgetQuickSub2 => _widgetQuickSub2;
+  String get widgetStyle => _widgetStyle;
 
   void setGeminiApiKey(String key) {
     _geminiApiKey = key;
     _storageService.saveString('gemini_api_key', key);
+    notifyListeners();
+  }
+
+  Future<void> updateWidgetStyle(String style) async {
+    _widgetStyle = style;
+    await _storageService.saveString('widget_style', style);
+    notifyListeners();
+  }
+
+  Future<void> saveWidgetPresets({
+    required double quickAdd1,
+    required double quickAdd2,
+    required double quickSub1,
+    required double quickSub2,
+  }) async {
+    _widgetQuickAdd1 = quickAdd1;
+    _widgetQuickAdd2 = quickAdd2;
+    _widgetQuickSub1 = quickSub1;
+    _widgetQuickSub2 = quickSub2;
+    await _storageService.saveDouble('widget_quick_add1', quickAdd1);
+    await _storageService.saveDouble('widget_quick_add2', quickAdd2);
+    await _storageService.saveDouble('widget_quick_sub1', quickSub1);
+    await _storageService.saveDouble('widget_quick_sub2', quickSub2);
     notifyListeners();
   }
   
@@ -57,6 +93,12 @@ class AppState extends ChangeNotifier {
     _transactions = _storageService.getTransactions();
     _salaryConfig = _storageService.getSalaryConfig();
     _geminiApiKey = _storageService.getString('gemini_api_key') ?? '';
+    
+    _widgetQuickAdd1 = _storageService.getDouble('widget_quick_add1') ?? 20.0;
+    _widgetQuickAdd2 = _storageService.getDouble('widget_quick_add2') ?? 50.0;
+    _widgetQuickSub1 = _storageService.getDouble('widget_quick_sub1') ?? 10.0;
+    _widgetQuickSub2 = _storageService.getDouble('widget_quick_sub2') ?? 25.0;
+    _widgetStyle = _storageService.getString('widget_style') ?? 'Glassmorphism';
     
     final staffStr = _storageService.getString('staff_members');
     if (staffStr != null && staffStr.isNotEmpty) {
@@ -747,6 +789,9 @@ class AppState extends ChangeNotifier {
       'widget_simulator': 'iOS Widget Simulator',
       'widget_simulator_desc': 'Configure and preview iPhone quick actions',
       'widget_setup_guide': 'How to set up on iPhone Home Screen',
+      'save_widget_presets': 'Save Widget Presets',
+      'widget_presets_saved': 'Widget presets saved successfully!',
+      'invalid_numbers': 'Please enter valid numbers!',
     },
     'ku': {
       'app_title': 'سەلاريفلۆو',
@@ -913,6 +958,9 @@ class AppState extends ChangeNotifier {
       'widget_simulator': 'هاوشێوەکەری وێجێتی iOS',
       'widget_simulator_desc': 'ڕێکخستن و پێشبینیکردنی وێجێتی ئایفۆن',
       'widget_setup_guide': 'چۆنیەتی دانان لەسەر شاشەی سەرەکی ئایفۆن',
+      'save_widget_presets': 'پاشەکەوتکردنی بڕەکانی وێجێت',
+      'widget_presets_saved': 'بڕە خێراکانی وێجێت بە سەرکەوتوویی پاشەکەوتکران!',
+      'invalid_numbers': 'تکایە ژمارەی دروست داخڵ بکە!',
     }
   };
 }
