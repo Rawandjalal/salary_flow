@@ -46,7 +46,8 @@ class _TasksPageState extends State<TasksPage> {
 
   @override
   Widget build(BuildContext context) {
-    final tasks = context.watch<AppState>().financialTasks;
+    final appState = context.watch<AppState>();
+    final tasks = appState.financialTasks;
     final theme = Theme.of(context);
 
     final pending = tasks.where((t) => !t.isCompleted).toList()
@@ -62,9 +63,9 @@ class _TasksPageState extends State<TasksPage> {
             snap: true,
             backgroundColor: theme.scaffoldBackgroundColor,
             elevation: 0,
-            title: const Text(
-              'Tasks & Reminders',
-              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 22),
+            title: Text(
+              appState.t('tasks_title'),
+              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 22),
             ),
             actions: [
               if (tasks.isNotEmpty)
@@ -72,7 +73,7 @@ class _TasksPageState extends State<TasksPage> {
                   padding: const EdgeInsets.only(right: 8),
                   child: Chip(
                     label: Text(
-                      '${pending.length} pending',
+                      '${pending.length} ${appState.t('tasks_pending')}',
                       style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                     ),
                     backgroundColor: const Color(0xFF10B981).withOpacity(0.15),
@@ -88,7 +89,7 @@ class _TasksPageState extends State<TasksPage> {
           else ...[
             if (pending.isNotEmpty) ...[
               _SectionHeader(
-                title: 'Upcoming Tasks',
+                title: appState.t('upcoming_tasks'),
                 icon: Icons.schedule_rounded,
                 color: const Color(0xFF10B981),
               ),
@@ -107,7 +108,7 @@ class _TasksPageState extends State<TasksPage> {
             ],
             if (completed.isNotEmpty) ...[
               _SectionHeader(
-                title: 'Completed',
+                title: appState.t('completed_tasks'),
                 icon: Icons.check_circle_rounded,
                 color: Colors.grey,
               ),
@@ -135,9 +136,9 @@ class _TasksPageState extends State<TasksPage> {
           backgroundColor: const Color(0xFF10B981),
           foregroundColor: Colors.white,
           icon: const Icon(Icons.add_task_rounded),
-          label: const Text(
-            'Add Task',
-            style: TextStyle(fontWeight: FontWeight.w700),
+          label: Text(
+            appState.t('add_task'),
+            style: const TextStyle(fontWeight: FontWeight.w700),
           ),
         ),
       ),
@@ -158,6 +159,21 @@ class _TaskCard extends StatelessWidget {
     if (task.isOverdue) return const Color(0xFFEF4444);
     if (task.isDueSoon) return const Color(0xFFF59E0B);
     return const Color(0xFF10B981);
+  }
+
+  String _getTimeRemainingLabel(AppState appState) {
+    if (task.isCompleted) return appState.t('task_done');
+    final diff = task.dueDateTime.difference(DateTime.now());
+    if (diff.isNegative) {
+      final abs = diff.abs();
+      if (abs.inDays > 0) return '${abs.inDays}${appState.t('d_overdue')}';
+      if (abs.inHours > 0) return '${abs.inHours}${appState.t('h_overdue')}';
+      return '${abs.inMinutes}${appState.t('m_overdue')}';
+    }
+    if (diff.inDays > 0) return '${appState.t('in_prefix')}${diff.inDays}d ${diff.inHours % 24}h';
+    if (diff.inHours > 0) return '${appState.t('in_prefix')}${diff.inHours}h ${diff.inMinutes % 60}m';
+    if (diff.inMinutes > 0) return '${appState.t('in_prefix')}${diff.inMinutes}m';
+    return appState.t('due_now');
   }
 
   @override
@@ -184,17 +200,17 @@ class _TaskCard extends StatelessWidget {
         return await showDialog<bool>(
           context: context,
           builder: (_) => AlertDialog(
-            title: const Text('Delete Task'),
-            content: Text('Delete "${task.title}"?'),
+            title: Text(appState.t('delete_task')),
+            content: Text('${appState.t('delete_confirm_prefix')} "${task.title}"?'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancel'),
+                child: Text(appState.t('cancel')),
               ),
               TextButton(
                 onPressed: () => Navigator.pop(context, true),
-                child: const Text('Delete',
-                    style: TextStyle(color: Color(0xFFEF4444))),
+                child: Text(appState.t('delete'),
+                    style: const TextStyle(color: Color(0xFFEF4444))),
               ),
             ],
           ),
@@ -321,7 +337,7 @@ class _TaskCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      task.timeRemainingLabel,
+                      _getTimeRemainingLabel(appState),
                       style: TextStyle(
                         fontSize: 11,
                         color: color,
@@ -397,14 +413,14 @@ class _AddTaskSheetState extends State<_AddTaskSheet> {
   }
 
   void _save() {
+    final appState = context.read<AppState>();
     if (_titleCtrl.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a task title')),
+        SnackBar(content: Text(appState.t('enter_title_error'))),
       );
       return;
     }
 
-    final appState = context.read<AppState>();
     final amount = double.tryParse(_amountCtrl.text.trim());
 
     if (widget.existing != null) {
@@ -434,8 +450,8 @@ class _AddTaskSheetState extends State<_AddTaskSheet> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(widget.existing != null
-            ? 'Task updated ✓'
-            : 'Task added — you\'ll be notified when it\'s due!'),
+            ? appState.t('task_updated_msg')
+            : appState.t('task_added_msg')),
         backgroundColor: const Color(0xFF10B981),
       ),
     );
@@ -443,6 +459,7 @@ class _AddTaskSheetState extends State<_AddTaskSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final appState = context.watch<AppState>();
     final theme = Theme.of(context);
     final isEditing = widget.existing != null;
 
@@ -473,7 +490,7 @@ class _AddTaskSheetState extends State<_AddTaskSheet> {
             ),
             const SizedBox(height: 20),
             Text(
-              isEditing ? 'Edit Task' : 'New Task',
+              isEditing ? appState.t('edit_task') : appState.t('new_task'),
               style: const TextStyle(
                   fontSize: 20, fontWeight: FontWeight.w800),
             ),
@@ -482,8 +499,8 @@ class _AddTaskSheetState extends State<_AddTaskSheet> {
             // Title
             _Field(
               controller: _titleCtrl,
-              label: 'Task Title',
-              hint: 'e.g. Buy groceries for family',
+              label: appState.t('task_title_lbl'),
+              hint: appState.t('task_title_hint'),
               icon: Icons.title_rounded,
             ),
             const SizedBox(height: 14),
@@ -491,8 +508,8 @@ class _AddTaskSheetState extends State<_AddTaskSheet> {
             // Description
             _Field(
               controller: _descCtrl,
-              label: 'Notes (optional)',
-              hint: 'Any extra details...',
+              label: appState.t('notes_lbl'),
+              hint: appState.t('notes_hint'),
               icon: Icons.notes_rounded,
               maxLines: 2,
             ),
@@ -501,7 +518,7 @@ class _AddTaskSheetState extends State<_AddTaskSheet> {
             // Amount
             _Field(
               controller: _amountCtrl,
-              label: 'Estimated Cost (optional)',
+              label: appState.t('estimated_cost'),
               hint: '0.00',
               icon: Icons.attach_money_rounded,
               keyboardType:
@@ -510,9 +527,9 @@ class _AddTaskSheetState extends State<_AddTaskSheet> {
             const SizedBox(height: 20),
 
             // Category picker
-            const Text(
-              'Category',
-              style: TextStyle(
+            Text(
+              appState.t('task_category'),
+              style: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
                   color: Colors.grey),
@@ -543,7 +560,7 @@ class _AddTaskSheetState extends State<_AddTaskSheet> {
                         ),
                       ),
                       child: Text(
-                        '${cat.emoji} ${cat.label}',
+                        '${cat.emoji} ${appState.t('task_cat_${cat.name}')}',
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
@@ -561,9 +578,9 @@ class _AddTaskSheetState extends State<_AddTaskSheet> {
             const SizedBox(height: 20),
 
             // Due date/time picker
-            const Text(
-              'Due Date & Time',
-              style: TextStyle(
+            Text(
+              appState.t('due_date_time'),
+              style: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
                   color: Colors.grey),
@@ -621,7 +638,7 @@ class _AddTaskSheetState extends State<_AddTaskSheet> {
                 const SizedBox(width: 8),
                 _Preset('3h', () => _setIn(const Duration(hours: 3))),
                 const SizedBox(width: 8),
-                _Preset('Tomorrow', () => _setIn(const Duration(days: 1))),
+                _Preset(appState.t('preset_tomorrow'), () => _setIn(const Duration(days: 1))),
               ],
             ),
             const SizedBox(height: 28),
@@ -639,7 +656,7 @@ class _AddTaskSheetState extends State<_AddTaskSheet> {
                       borderRadius: BorderRadius.circular(16)),
                 ),
                 child: Text(
-                  isEditing ? 'Update Task' : 'Add Task + Set Reminder',
+                  isEditing ? appState.t('update_task') : appState.t('add_task_reminder'),
                   style: const TextStyle(
                       fontWeight: FontWeight.w800, fontSize: 15),
                 ),
@@ -720,43 +737,46 @@ class _EmptyState extends StatelessWidget {
   const _EmptyState({required this.onAdd});
 
   @override
-  Widget build(BuildContext context) => Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Text('📋', style: TextStyle(fontSize: 64)),
-            const SizedBox(height: 16),
-            const Text(
-              'No Tasks Yet',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+  Widget build(BuildContext context) {
+    final appState = context.read<AppState>();
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Text('📋', style: TextStyle(fontSize: 64)),
+          const SizedBox(height: 16),
+          Text(
+            appState.t('no_tasks_yet'),
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            appState.t('no_tasks_desc'),
+            textAlign: TextAlign.center,
+            style: TextStyle(
+                color: Colors.grey.shade500, height: 1.5),
+          ),
+          const SizedBox(height: 28),
+          ElevatedButton.icon(
+            onPressed: onAdd,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF10B981),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 28, vertical: 14),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16)),
             ),
-            const SizedBox(height: 8),
-            Text(
-              'Add tasks like "Buy groceries" or "Pay bills"\nand get notified when they\'re due.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                  color: Colors.grey.shade500, height: 1.5),
+            icon: const Icon(Icons.add_task_rounded),
+            label: Text(
+              appState.t('create_first_task'),
+              style: const TextStyle(fontWeight: FontWeight.w700),
             ),
-            const SizedBox(height: 28),
-            ElevatedButton.icon(
-              onPressed: onAdd,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF10B981),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 28, vertical: 14),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16)),
-              ),
-              icon: const Icon(Icons.add_task_rounded),
-              label: const Text(
-                'Create First Task',
-                style: TextStyle(fontWeight: FontWeight.w700),
-              ),
-            ),
-          ],
-        ),
-      );
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _Field extends StatelessWidget {
