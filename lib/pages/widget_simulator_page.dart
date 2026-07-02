@@ -325,6 +325,13 @@ class _WidgetSimulatorPageState extends State<WidgetSimulatorPage> {
                                             }),
                                           ],
                                         ),
+                                        const SizedBox(height: 6),
+                                        _buildWidgetActionButton(
+                                          isRtl ? '✏️ بڕی دەستی' : '✏️ Custom',
+                                          Colors.orangeAccent,
+                                          () => _showManualEntryDialog(context),
+                                          width: 114,
+                                        ),
                                       ],
                                     ),
                                   ],
@@ -569,12 +576,12 @@ class _WidgetSimulatorPageState extends State<WidgetSimulatorPage> {
     );
   }
 
-  Widget _buildWidgetActionButton(String label, Color color, VoidCallback onTap) {
+  Widget _buildWidgetActionButton(String label, Color color, VoidCallback onTap, {double width = 54}) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
         height: 42,
-        width: 54,
+        width: width,
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: color.withOpacity(0.12),
@@ -640,6 +647,103 @@ class _WidgetSimulatorPageState extends State<WidgetSimulatorPage> {
           ),
         ],
       ),
+    );
+  }
+
+  void _showManualEntryDialog(BuildContext context) {
+    final appState = Provider.of<AppState>(context, listen: false);
+    final isRtl = appState.isRtl;
+    final controller = TextEditingController();
+    bool isIncome = false;
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: const Color(0xFF111422),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              title: Text(
+                isRtl ? 'تۆمارکردنی دەستی وێجێت' : 'Widget Manual Entry',
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ChoiceChip(
+                          label: Text(isRtl ? 'خەرجی' : 'Expense'),
+                          selected: !isIncome,
+                          selectedColor: const Color(0xFFEF4444).withOpacity(0.2),
+                          checkmarkColor: const Color(0xFFEF4444),
+                          labelStyle: TextStyle(color: !isIncome ? const Color(0xFFEF4444) : Colors.white60, fontWeight: FontWeight.bold),
+                          onSelected: (val) => setDialogState(() => isIncome = false),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: ChoiceChip(
+                          label: Text(isRtl ? 'داهات' : 'Income'),
+                          selected: isIncome,
+                          selectedColor: const Color(0xFF10B981).withOpacity(0.2),
+                          checkmarkColor: const Color(0xFF10B981),
+                          labelStyle: TextStyle(color: isIncome ? const Color(0xFF10B981) : Colors.white60, fontWeight: FontWeight.bold),
+                          onSelected: (val) => setDialogState(() => isIncome = true),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: controller,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      hintText: isRtl ? 'بڕی پارە بنووسە...' : 'Enter amount...',
+                      hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
+                      suffixText: _activeWallet,
+                      suffixStyle: const TextStyle(color: Colors.white54, fontWeight: FontWeight.bold),
+                      filled: true,
+                      fillColor: Colors.white.withOpacity(0.04),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text(isRtl ? 'پاشگەزبوونەوە' : 'Cancel', style: TextStyle(color: Colors.white.withOpacity(0.6))),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: isIncome ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: () {
+                    final amt = double.tryParse(controller.text);
+                    if (amt != null && amt > 0) {
+                      Navigator.pop(context);
+                      _triggerSimulatedAction(
+                        isIncome ? 'Income' : 'Expense', 
+                        amt, 
+                        isIncome,
+                      );
+                    }
+                  },
+                  child: Text(isRtl ? 'تۆمارکردن' : 'Add'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 

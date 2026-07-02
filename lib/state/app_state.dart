@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/transaction.dart';
 import '../models/salary_config.dart';
 import '../models/staff_member.dart';
+import '../models/planners_models.dart';
 import '../services/storage_service.dart';
 
 class AppState extends ChangeNotifier {
@@ -26,6 +27,12 @@ class AppState extends ChangeNotifier {
   double _widgetQuickSub2 = 25.0;
   String _widgetStyle = 'Glassmorphism';
 
+  // Planners states
+  List<WorkTask> _workTasks = [];
+  List<BusinessMilestone> _businessMilestones = [];
+  double _targetMonthlyRevenueUSD = 5000.0;
+  double _targetMonthlyRevenueIQD = 7500000.0;
+
   AppState(this._storageService) {
     _loadFromStorage();
   }
@@ -40,6 +47,12 @@ class AppState extends ChangeNotifier {
   double get widgetQuickSub1 => _widgetQuickSub1;
   double get widgetQuickSub2 => _widgetQuickSub2;
   String get widgetStyle => _widgetStyle;
+
+  // Planners Getters
+  List<WorkTask> get workTasks => _workTasks;
+  List<BusinessMilestone> get businessMilestones => _businessMilestones;
+  double get targetMonthlyRevenueUSD => _targetMonthlyRevenueUSD;
+  double get targetMonthlyRevenueIQD => _targetMonthlyRevenueIQD;
 
   void setGeminiApiKey(String key) {
     _geminiApiKey = key;
@@ -115,6 +128,70 @@ class AppState extends ChangeNotifier {
         _payrollRecords = decoded.map((e) => PayrollRecord.fromJson(e)).toList();
       } catch (_) {}
     }
+
+    // Load Planners Data
+    final tasksStr = _storageService.getString('work_tasks');
+    if (tasksStr != null && tasksStr.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(tasksStr) as List;
+        _workTasks = decoded.map((e) => WorkTask.fromJson(e)).toList();
+      } catch (_) {}
+    } else {
+      _workTasks = [
+        WorkTask(
+          id: 'task_default_1',
+          title: 'Set up business budget limits',
+          description: 'Determine office fixed expenses and staff salaries.',
+          assignedStaffId: '',
+          assignedStaffName: '',
+          dueDate: DateTime.now().add(const Duration(days: 2)),
+          priority: 'high',
+          status: 'todo',
+        ),
+        WorkTask(
+          id: 'task_default_2',
+          title: 'Update daily ledger entries',
+          description: 'Log all sales and daily cash expenses.',
+          assignedStaffId: '',
+          assignedStaffName: '',
+          dueDate: DateTime.now().add(const Duration(days: 1)),
+          priority: 'medium',
+          status: 'in_progress',
+        ),
+      ];
+    }
+
+    final milestonesStr = _storageService.getString('business_milestones');
+    if (milestonesStr != null && milestonesStr.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(milestonesStr) as List;
+        _businessMilestones = decoded.map((e) => BusinessMilestone.fromJson(e)).toList();
+      } catch (_) {}
+    } else {
+      _businessMilestones = [
+        BusinessMilestone(
+          id: 'milestone_1',
+          title: 'Hire First 3 Staff Members',
+          description: 'Hire and add staff to payroll list.',
+          isCompleted: false,
+        ),
+        BusinessMilestone(
+          id: 'milestone_2',
+          title: 'Reach Target Business Revenue',
+          description: 'Achieve monthly business sales goal.',
+          isCompleted: false,
+        ),
+        BusinessMilestone(
+          id: 'milestone_3',
+          title: 'Stabilize 14-Day Runway',
+          description: 'Maintain enough balance to cover 2 weeks of expenses.',
+          isCompleted: false,
+        ),
+      ];
+    }
+
+    _targetMonthlyRevenueUSD = _storageService.getDouble('target_monthly_revenue_usd') ?? 5000.0;
+    _targetMonthlyRevenueIQD = _storageService.getDouble('target_monthly_revenue_iqd') ?? 7500000.0;
 
     _isLoading = false;
     notifyListeners();
@@ -1060,4 +1137,91 @@ class AppState extends ChangeNotifier {
       'invalid_numbers': 'تکایە ژمارەی دروست داخڵ بکە!',
     }
   };
+
+  // Planners Methods
+  Future<void> _saveWorkTasks() async {
+    final str = jsonEncode(_workTasks.map((e) => e.toJson()).toList());
+    await _storageService.saveString('work_tasks', str);
+  }
+
+  Future<void> _saveBusinessMilestones() async {
+    final str = jsonEncode(_businessMilestones.map((e) => e.toJson()).toList());
+    await _storageService.saveString('business_milestones', str);
+  }
+
+  Future<void> addWorkTask(WorkTask task) async {
+    _workTasks.add(task);
+    await _saveWorkTasks();
+    notifyListeners();
+  }
+
+  Future<void> updateWorkTask(WorkTask task) async {
+    final idx = _workTasks.indexWhere((e) => e.id == task.id);
+    if (idx != -1) {
+      _workTasks[idx] = task;
+      await _saveWorkTasks();
+      notifyListeners();
+    }
+  }
+
+  Future<void> deleteWorkTask(String id) async {
+    _workTasks.removeWhere((e) => e.id == id);
+    await _saveWorkTasks();
+    notifyListeners();
+  }
+
+  Future<void> toggleWorkTaskStatus(String id) async {
+    final idx = _workTasks.indexWhere((e) => e.id == id);
+    if (idx != -1) {
+      final currentStatus = _workTasks[idx].status;
+      final nextStatus = currentStatus == 'done' ? 'todo' : 'done';
+      _workTasks[idx] = _workTasks[idx].copyWith(status: nextStatus);
+      await _saveWorkTasks();
+      notifyListeners();
+    }
+  }
+
+  Future<void> addBusinessMilestone(BusinessMilestone milestone) async {
+    _businessMilestones.add(milestone);
+    await _saveBusinessMilestones();
+    notifyListeners();
+  }
+
+  Future<void> updateBusinessMilestone(BusinessMilestone milestone) async {
+    final idx = _businessMilestones.indexWhere((e) => e.id == milestone.id);
+    if (idx != -1) {
+      _businessMilestones[idx] = milestone;
+      await _saveBusinessMilestones();
+      notifyListeners();
+    }
+  }
+
+  Future<void> deleteBusinessMilestone(String id) async {
+    _businessMilestones.removeWhere((e) => e.id == id);
+    await _saveBusinessMilestones();
+    notifyListeners();
+  }
+
+  Future<void> toggleMilestoneStatus(String id) async {
+    final idx = _businessMilestones.indexWhere((e) => e.id == id);
+    if (idx != -1) {
+      _businessMilestones[idx] = _businessMilestones[idx].copyWith(
+        isCompleted: !_businessMilestones[idx].isCompleted,
+      );
+      await _saveBusinessMilestones();
+      notifyListeners();
+    }
+  }
+
+  Future<void> setTargetMonthlyRevenueUSD(double val) async {
+    _targetMonthlyRevenueUSD = val;
+    await _storageService.saveDouble('target_monthly_revenue_usd', val);
+    notifyListeners();
+  }
+
+  Future<void> setTargetMonthlyRevenueIQD(double val) async {
+    _targetMonthlyRevenueIQD = val;
+    await _storageService.saveDouble('target_monthly_revenue_iqd', val);
+    notifyListeners();
+  }
 }
