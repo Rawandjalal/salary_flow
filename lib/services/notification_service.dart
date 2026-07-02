@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:timezone/data/latest_all.dart' as tz;
+import 'package:timezone/timezone.dart' as tz;
 import '../models/task.dart';
 
 class NotificationService {
@@ -13,6 +15,8 @@ class NotificationService {
 
   Future<void> init() async {
     if (_initialized) return;
+
+    tz.initializeTimeZones();
 
     const iosSettings = DarwinInitializationSettings(
       requestAlertPermission: true,
@@ -93,14 +97,16 @@ class NotificationService {
       android: androidDetails,
     );
 
-    await _plugin.schedule(
+    await _plugin.zonedSchedule(
       notifId,
       '${task.category.emoji} Task Due: ${task.title}',
       'Your task is due now!$amountText',
-      task.dueDateTime,
+      tz.TZDateTime.from(task.dueDateTime, tz.local),
       details,
-      payload: task.id,
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
+      payload: task.id,
     );
 
     debugPrint('Scheduled notification $notifId for task ${task.title} at ${task.dueDateTime}');
@@ -111,6 +117,7 @@ class NotificationService {
     final notifId = taskId.hashCode.abs() % 100000;
     await _plugin.cancel(notifId);
   }
+
 
   Future<void> cancelAll() async {
     if (!_initialized) await init();

@@ -10,7 +10,6 @@ import 'pages/transactions_page.dart';
 import 'pages/analysis_page.dart';
 import 'pages/settings_page.dart';
 import 'pages/tasks_page.dart';
-import 'pages/planners_page.dart';
 import 'widgets/add_transaction_sheet.dart';
 
 void main() async {
