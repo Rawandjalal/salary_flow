@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../models/transaction.dart';
 import '../models/salary_config.dart';
+import '../models/staff_member.dart';
 import '../services/storage_service.dart';
 
 class AppState extends ChangeNotifier {
@@ -14,12 +16,17 @@ class AppState extends ChangeNotifier {
   String _selectedScope = 'all';
   String _geminiApiKey = '';
 
+  List<StaffMember> _staffMembers = [];
+  List<PayrollRecord> _payrollRecords = [];
+
   AppState(this._storageService) {
     _loadFromStorage();
   }
 
   bool get isLoading => _isLoading;
   String get geminiApiKey => _geminiApiKey;
+  List<StaffMember> get staffMembers => _staffMembers;
+  List<PayrollRecord> get payrollRecords => _payrollRecords;
 
   void setGeminiApiKey(String key) {
     _geminiApiKey = key;
@@ -50,6 +57,23 @@ class AppState extends ChangeNotifier {
     _transactions = _storageService.getTransactions();
     _salaryConfig = _storageService.getSalaryConfig();
     _geminiApiKey = _storageService.getString('gemini_api_key') ?? '';
+    
+    final staffStr = _storageService.getString('staff_members');
+    if (staffStr != null && staffStr.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(staffStr) as List;
+        _staffMembers = decoded.map((e) => StaffMember.fromJson(e)).toList();
+      } catch (_) {}
+    }
+    
+    final payrollStr = _storageService.getString('payroll_records');
+    if (payrollStr != null && payrollStr.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(payrollStr) as List;
+        _payrollRecords = decoded.map((e) => PayrollRecord.fromJson(e)).toList();
+      } catch (_) {}
+    }
+
     _isLoading = false;
     notifyListeners();
   }
@@ -69,6 +93,73 @@ class AppState extends ChangeNotifier {
   Future<void> deleteTransaction(String id) async {
     _transactions.removeWhere((tx) => tx.id == id);
     await _storageService.saveTransactions(_transactions);
+    notifyListeners();
+  }
+
+  Future<void> _saveStaffMembers() async {
+    final str = jsonEncode(_staffMembers.map((e) => e.toJson()).toList());
+    await _storageService.saveString('staff_members', str);
+  }
+
+  Future<void> _savePayrollRecords() async {
+    final str = jsonEncode(_payrollRecords.map((e) => e.toJson()).toList());
+    await _storageService.saveString('payroll_records', str);
+  }
+
+  Future<void> addStaffMember(StaffMember member) async {
+    _staffMembers.add(member);
+    await _saveStaffMembers();
+    notifyListeners();
+  }
+
+  Future<void> deleteStaffMember(String id) async {
+    _staffMembers.removeWhere((e) => e.id == id);
+    _payrollRecords.removeWhere((e) => e.staffId == id);
+    await _saveStaffMembers();
+    await _savePayrollRecords();
+    notifyListeners();
+  }
+
+  Future<void> updateStaffMember(StaffMember member) async {
+    final idx = _staffMembers.indexWhere((e) => e.id == member.id);
+    if (idx != -1) {
+      _staffMembers[idx] = member;
+      await _saveStaffMembers();
+      notifyListeners();
+    }
+  }
+
+  Future<void> logDailyPayroll(DateTime date, List<PayrollRecord> records) async {
+    // 1. Remove existing payroll logs for this date to avoid duplicates
+    final dateStr = date.toIso8601String().substring(0, 10);
+    _payrollRecords.removeWhere((e) => e.date.toIso8601String().substring(0, 10) == dateStr);
+
+    // 2. Add the new logs
+    _payrollRecords.addAll(records);
+    await _savePayrollRecords();
+
+    // 3. Automatically add to general ledger expenses
+    for (final record in records) {
+      if (record.amount > 0 && record.status != 'absent') {
+        final tx = Transaction(
+          id: 'payroll_${record.id}_${DateTime.now().millisecondsSinceEpoch}',
+          title: isRtl ? 'مووچە: ${record.staffName}' : 'Payroll: ${record.staffName}',
+          amount: record.amount,
+          currency: record.currency,
+          category: 'salaries',
+          date: date,
+          isIncome: false,
+          scope: 'business',
+          paymentMethod: 'cash',
+          contact: record.staffName,
+          description: isRtl 
+              ? 'تۆمارکرا بە شێوەی ئۆتۆماتیکی لە ڕێگەی لیستی مووچەی ڕۆژانە. بارودۆخ: ${record.status}' 
+              : 'Automatically generated via Daily Payroll table. Status: ${record.status}',
+        );
+        await addTransaction(tx);
+      }
+    }
+
     notifyListeners();
   }
 
@@ -637,6 +728,25 @@ class AppState extends ChangeNotifier {
       'generate_podcast': 'Start AI Conversation',
       'podcast_playing': 'Playing AI Debate...',
       'podcast_paused': 'AI Debate Paused',
+      'staff_payroll': 'Staff Payroll',
+      'staff_payroll_desc': 'Log daily worker salaries & check sheets',
+      'staff_list': 'Staff List',
+      'add_staff': 'Add Staff Member',
+      'staff_name': 'Staff Name',
+      'role': 'Role',
+      'base_salary': 'Base Daily Salary',
+      'actions': 'Actions',
+      'daily_log': 'Daily Work Log',
+      'present': 'Present',
+      'half_day': 'Half Day',
+      'absent': 'Absent',
+      'custom': 'Custom',
+      'commit_payroll': 'Commit Daily Payroll',
+      'payroll_submitted': 'Daily payroll committed and logged to expenses!',
+      'payroll_date': 'Payroll Date',
+      'widget_simulator': 'iOS Widget Simulator',
+      'widget_simulator_desc': 'Configure and preview iPhone quick actions',
+      'widget_setup_guide': 'How to set up on iPhone Home Screen',
     },
     'ku': {
       'app_title': 'سەلاريفلۆو',
@@ -784,6 +894,25 @@ class AppState extends ChangeNotifier {
       'generate_podcast': 'دەستپێکردنی گفتوگۆی ژیری',
       'podcast_playing': 'گفتوگۆکە پەخش دەبێت...',
       'podcast_paused': 'گفتوگۆکە ڕاگیرا',
+      'staff_payroll': 'مووچەی کارمەندان',
+      'staff_payroll_desc': 'تۆمارکردنی مووچەی ڕۆژانەی کارمەندان و شیتەکان',
+      'staff_list': 'لیستی کارمەندان',
+      'add_staff': 'زیادکردنی کارمەند',
+      'staff_name': 'ناوی کارمەند',
+      'role': 'ڕۆڵ / کارەکەی',
+      'base_salary': 'مووچەی بنەڕەتی ڕۆژانە',
+      'actions': 'کردارەکان',
+      'daily_log': 'تۆماری ڕۆژانەی کار',
+      'present': 'ئامادە (تەواو)',
+      'half_day': 'نیوە ڕۆژ',
+      'absent': 'نەهاتوو (سفر)',
+      'custom': 'دیاریکراو',
+      'commit_payroll': 'تۆمارکردنی مووچەی ڕۆژەکە',
+      'payroll_submitted': 'مووچەی ڕۆژانەی کارمەندان تۆمارکرا لە خەرجییەکان!',
+      'payroll_date': 'ڕێکەوتی مووچە',
+      'widget_simulator': 'هاوشێوەکەری وێجێتی iOS',
+      'widget_simulator_desc': 'ڕێکخستن و پێشبینیکردنی وێجێتی ئایفۆن',
+      'widget_setup_guide': 'چۆنیەتی دانان لەسەر شاشەی سەرەکی ئایفۆن',
     }
   };
 }
