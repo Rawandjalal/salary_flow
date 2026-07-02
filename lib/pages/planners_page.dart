@@ -174,7 +174,7 @@ class _PlannersPageState extends State<PlannersPage> with SingleTickerProviderSt
                       ),
                       Text(
                         '${(completionRatio * 100).toStringAsFixed(0)}%',
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.black, color: Colors.white),
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: Colors.white),
                       ),
                     ],
                   ),
@@ -338,9 +338,9 @@ class _PlannersPageState extends State<PlannersPage> with SingleTickerProviderSt
                     ),
                   ],
                   const SizedBox(height: 8),
-                  Row(
-                    flexWrap: true,
+                  Wrap(
                     spacing: 8,
+                    runSpacing: 8,
                     children: [
                       // Due Date chip
                       Container(
@@ -663,7 +663,7 @@ class _PlannersPageState extends State<PlannersPage> with SingleTickerProviderSt
                         const SizedBox(height: 4),
                         Text(
                           currencyFormat.format(actualRevenue),
-                          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.black, color: Colors.white),
+                          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Colors.white),
                         ),
                         const SizedBox(height: 8),
                         Text(
@@ -691,7 +691,7 @@ class _PlannersPageState extends State<PlannersPage> with SingleTickerProviderSt
                       ),
                       Text(
                         '$progressPercent%',
-                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.black, color: Colors.white),
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: Colors.white),
                       ),
                     ],
                   ),
@@ -874,7 +874,7 @@ class _PlannersPageState extends State<PlannersPage> with SingleTickerProviderSt
                 keyboardType: const TextInputType.numberWithOptions(decimal: false),
                 style: const TextStyle(color: Colors.white),
                 decoration: InputDecoration(
-                  suffixText: isUsd ? 'USD ($)' : 'IQD (د.ع)',
+                  suffixText: isUsd ? 'USD (\\\$)' : 'IQD (د.ع)',
                   suffixStyle: const TextStyle(color: Colors.white54, fontWeight: FontWeight.bold),
                   filled: true,
                   fillColor: Colors.white.withOpacity(0.04),

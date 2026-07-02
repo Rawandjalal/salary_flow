@@ -1,10 +1,14 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
+import 'package:intl/intl.dart' hide TextDirection;
 import '../models/task.dart';
+import '../models/transaction.dart';
 import '../state/app_state.dart';
 import '../services/notification_service.dart';
+
+
+
 
 class TasksPage extends StatefulWidget {
   const TasksPage({super.key});
@@ -68,16 +72,22 @@ class _TasksPageState extends State<TasksPage> {
               style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 22),
             ),
             actions: [
+              IconButton(
+                icon: const Icon(Icons.add_circle_outline_rounded, size: 28, color: Color(0xFF10B981)),
+                onPressed: _showAddTaskSheet,
+              ),
               if (tasks.isNotEmpty)
                 Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: Chip(
-                    label: Text(
-                      '${pending.length} ${appState.t('tasks_pending')}',
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Center(
+                    child: Chip(
+                      label: Text(
+                        '${pending.length} ${appState.t('tasks_pending')}',
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                      ),
+                      backgroundColor: const Color(0xFF10B981).withOpacity(0.15),
+                      side: BorderSide.none,
                     ),
-                    backgroundColor: const Color(0xFF10B981).withOpacity(0.15),
-                    side: BorderSide.none,
                   ),
                 ),
             ],
@@ -129,19 +139,6 @@ class _TasksPageState extends State<TasksPage> {
           ],
         ],
       ),
-      floatingActionButton: Padding(
-        padding: const EdgeInsets.only(bottom: 76),
-        child: FloatingActionButton.extended(
-          onPressed: _showAddTaskSheet,
-          backgroundColor: const Color(0xFF10B981),
-          foregroundColor: Colors.white,
-          icon: const Icon(Icons.add_task_rounded),
-          label: Text(
-            appState.t('add_task'),
-            style: const TextStyle(fontWeight: FontWeight.w700),
-          ),
-        ),
-      ),
     );
   }
 }
@@ -159,6 +156,15 @@ class _TaskCard extends StatelessWidget {
     if (task.isOverdue) return const Color(0xFFEF4444);
     if (task.isDueSoon) return const Color(0xFFF59E0B);
     return const Color(0xFF10B981);
+  }
+
+  void _showLogTransactionSheet(BuildContext context, FinancialTask task, AppState appState) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _LogTaskTransactionSheet(task: task, appState: appState),
+    );
   }
 
   String _getTimeRemainingLabel(AppState appState) {
@@ -242,10 +248,10 @@ class _TaskCard extends StatelessWidget {
               // Category emoji + checkbox
               GestureDetector(
                 onTap: () {
-                  appState.toggleFinancialTask(task.id);
-                  if (!task.isCompleted) {
-                    NotificationService.instance
-                        .cancelTaskNotification(task.id);
+                  if (task.isCompleted) {
+                    appState.toggleFinancialTask(task.id);
+                  } else {
+                    _showLogTransactionSheet(context, task, appState);
                   }
                 },
                 child: Container(
@@ -834,3 +840,474 @@ class _Field extends StatelessWidget {
     );
   }
 }
+
+class _LogTaskTransactionSheet extends StatefulWidget {
+  final FinancialTask task;
+  final AppState appState;
+
+  const _LogTaskTransactionSheet({required this.task, required this.appState});
+
+  @override
+  State<_LogTaskTransactionSheet> createState() => _LogTaskTransactionSheetState();
+}
+
+class _LogTaskTransactionSheetState extends State<_LogTaskTransactionSheet> {
+  late final TextEditingController _titleCtrl;
+  late final TextEditingController _amountCtrl;
+  bool _isIncome = false;
+  String _selectedCurrency = 'USD';
+  String _selectedScope = 'personal';
+  String _selectedPaymentMethod = 'Cash';
+
+  @override
+  void initState() {
+    super.initState();
+    _titleCtrl = TextEditingController(text: widget.task.title);
+    _amountCtrl = TextEditingController(
+        text: widget.task.amount != null ? widget.task.amount!.toStringAsFixed(0) : '');
+    // Smart default based on task category
+    _isIncome = widget.task.category == TaskCategory.savings;
+  }
+
+  @override
+  void dispose() {
+    _titleCtrl.dispose();
+    _amountCtrl.dispose();
+    super.dispose();
+  }
+
+  String _mapTaskCategoryToTxCategory(TaskCategory cat, bool isIncome) {
+    if (isIncome) {
+      switch (cat) {
+        case TaskCategory.savings:
+          return 'Investments';
+        default:
+          return 'Other';
+      }
+    } else {
+      switch (cat) {
+        case TaskCategory.shopping:
+          return 'Shopping';
+        case TaskCategory.food:
+          return 'Food';
+        case TaskCategory.bills:
+          return 'Utilities';
+        case TaskCategory.health:
+          return 'Medical';
+        case TaskCategory.entertainment:
+          return 'Entertainment';
+        case TaskCategory.travel:
+          return 'Transport';
+        default:
+          return 'Other';
+      }
+    }
+  }
+
+  void _completeAndLog() {
+    final amount = double.tryParse(_amountCtrl.text.trim());
+    if (amount == null || amount <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(widget.appState.t('invalid_numbers'))),
+      );
+      return;
+    }
+
+    final tx = Transaction(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      title: _titleCtrl.text.trim(),
+      amount: amount,
+      isIncome: _isIncome,
+      category: _mapTaskCategoryToTxCategory(widget.task.category, _isIncome),
+      date: DateTime.now(),
+      currency: _selectedCurrency,
+      scope: _selectedScope,
+      paymentMethod: _selectedPaymentMethod,
+    );
+
+    widget.appState.addTransaction(tx);
+    widget.appState.toggleFinancialTask(widget.task.id);
+    Navigator.pop(context);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(widget.appState.t('task_updated_msg')),
+        backgroundColor: const Color(0xFF10B981),
+      ),
+    );
+  }
+
+  void _completeOnly() {
+    widget.appState.toggleFinancialTask(widget.task.id);
+    Navigator.pop(context);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(widget.appState.t('task_updated_msg')),
+        backgroundColor: const Color(0xFF10B981),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isRtl = widget.appState.isRtl;
+
+    return Directionality(
+      textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
+      child: Container(
+        margin: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+        ),
+        decoration: BoxDecoration(
+          color: theme.scaffoldBackgroundColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Handle bar
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                widget.appState.t('log_tx_title'),
+                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 20),
+
+              // Transaction Type Selector
+              Text(
+                widget.appState.t('tx_type'),
+                style: const TextStyle(
+                    fontSize: 13, fontWeight: FontWeight.w700, color: Colors.grey),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => setState(() => _isIncome = false),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        decoration: BoxDecoration(
+                          color: !_isIncome
+                              ? const Color(0xFFEF4444).withOpacity(0.12)
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: !_isIncome
+                                ? const Color(0xFFEF4444).withOpacity(0.3)
+                                : Colors.grey.withOpacity(0.2),
+                          ),
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          widget.appState.t('spent_expense'),
+                          style: TextStyle(
+                            color: !_isIncome ? const Color(0xFFEF4444) : Colors.grey,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => setState(() => _isIncome = true),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        decoration: BoxDecoration(
+                          color: _isIncome
+                              ? const Color(0xFF10B981).withOpacity(0.12)
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: _isIncome
+                                ? const Color(0xFF10B981).withOpacity(0.3)
+                                : Colors.grey.withOpacity(0.2),
+                          ),
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          widget.appState.t('got_income'),
+                          style: TextStyle(
+                            color: _isIncome ? const Color(0xFF10B981) : Colors.grey,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+
+              // Title
+              _Field(
+                controller: _titleCtrl,
+                label: widget.appState.t('title'),
+                hint: '',
+                icon: Icons.title_rounded,
+              ),
+              const SizedBox(height: 14),
+
+              // Amount
+              _Field(
+                controller: _amountCtrl,
+                label: widget.appState.t('actual_amount'),
+                hint: '0.00',
+                icon: Icons.attach_money_rounded,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              ),
+              const SizedBox(height: 20),
+
+              // Currency Choice
+              Text(
+                widget.appState.t('currency'),
+                style: const TextStyle(
+                    fontSize: 13, fontWeight: FontWeight.w700, color: Colors.grey),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => setState(() => _selectedCurrency = 'USD'),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        decoration: BoxDecoration(
+                          color: _selectedCurrency == 'USD'
+                              ? const Color(0xFF10B981).withOpacity(0.12)
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: _selectedCurrency == 'USD'
+                                ? const Color(0xFF10B981).withOpacity(0.3)
+                                : Colors.grey.withOpacity(0.2),
+                          ),
+                        ),
+                        alignment: Alignment.center,
+                        child: const Text(
+                          'USD (\\\$)',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => setState(() => _selectedCurrency = 'IQD'),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        decoration: BoxDecoration(
+                          color: _selectedCurrency == 'IQD'
+                              ? const Color(0xFF10B981).withOpacity(0.12)
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: _selectedCurrency == 'IQD'
+                                ? const Color(0xFF10B981).withOpacity(0.3)
+                                : Colors.grey.withOpacity(0.2),
+                          ),
+                        ),
+                        alignment: Alignment.center,
+                        child: const Text(
+                          'IQD (د.ع)',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+
+              // Scope Choice
+              Text(
+                widget.appState.t('scope'),
+                style: const TextStyle(
+                    fontSize: 13, fontWeight: FontWeight.w700, color: Colors.grey),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => setState(() => _selectedScope = 'personal'),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        decoration: BoxDecoration(
+                          color: _selectedScope == 'personal'
+                              ? const Color(0xFF10B981).withOpacity(0.12)
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: _selectedScope == 'personal'
+                                ? const Color(0xFF10B981).withOpacity(0.3)
+                                : Colors.grey.withOpacity(0.2),
+                          ),
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          widget.appState.t('personal'),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => setState(() => _selectedScope = 'business'),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        decoration: BoxDecoration(
+                          color: _selectedScope == 'business'
+                              ? const Color(0xFF10B981).withOpacity(0.12)
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: _selectedScope == 'business'
+                                ? const Color(0xFF10B981).withOpacity(0.3)
+                                : Colors.grey.withOpacity(0.2),
+                          ),
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          widget.appState.t('business'),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+
+              // Payment Method Choice
+              Text(
+                widget.appState.t('payment_method'),
+                style: const TextStyle(
+                    fontSize: 13, fontWeight: FontWeight.w700, color: Colors.grey),
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                height: 48,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  children: ['Cash', 'Card', 'Transfer', 'Debt'].map((method) {
+                    final isSelected = _selectedPaymentMethod == method;
+                    String displayLabel = method;
+                    if (widget.appState.salaryConfig.language == 'ku') {
+                      if (method == 'Cash') displayLabel = 'کاش';
+                      if (method == 'Card') displayLabel = 'کارت';
+                      if (method == 'Transfer') displayLabel = 'حەواڵە';
+                      if (method == 'Debt') displayLabel = 'قەرز';
+                    }
+                    return GestureDetector(
+                      onTap: () => setState(() => _selectedPaymentMethod = method),
+                      child: Container(
+                        margin: const EdgeInsets.only(right: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? const Color(0xFF10B981).withOpacity(0.12)
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: isSelected
+                                ? const Color(0xFF10B981).withOpacity(0.3)
+                                : Colors.grey.withOpacity(0.2),
+                          ),
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          displayLabel,
+                          style: TextStyle(
+                            color: isSelected ? const Color(0xFF10B981) : Colors.grey,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+              const SizedBox(height: 32),
+
+              // Buttons
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  onPressed: _completeAndLog,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF10B981),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                  child: Text(
+                    widget.appState.t('complete_and_log'),
+                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: OutlinedButton(
+                  onPressed: _completeOnly,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.grey,
+                    side: BorderSide(color: Colors.grey.withOpacity(0.3)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                  child: Text(
+                    widget.appState.t('complete_only'),
+                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+

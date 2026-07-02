@@ -1052,8 +1052,7 @@ class AppState extends ChangeNotifier {
       'new_task': 'New Task',
       'delete_task': 'Delete Task',
       'delete_confirm_prefix': 'Delete',
-      'cancel': 'Cancel',
-      'delete': 'Delete',
+
       'task_title_lbl': 'Task Title',
       'task_title_hint': 'e.g. Buy groceries for family',
       'notes_lbl': 'Notes (optional)',
@@ -1084,6 +1083,13 @@ class AppState extends ChangeNotifier {
       'task_cat_entertainment': 'Fun',
       'task_cat_travel': 'Travel',
       'task_cat_other': 'Other',
+      'complete_and_log': 'Complete & Log Transaction',
+      'complete_only': 'Complete Only',
+      'log_tx_title': 'Log Task Transaction',
+      'actual_amount': 'Actual Amount Spent/Received',
+      'tx_type': 'Transaction Type',
+      'spent_expense': 'Expense (Spent)',
+      'got_income': 'Income (Got)',
     },
     'ku': {
       'app_title': 'سەلاريفلۆو',
@@ -1271,9 +1277,7 @@ class AppState extends ChangeNotifier {
       'edit_task': 'دەستکاریکردنی ئەرک',
       'new_task': 'ئەرکی نوێ',
       'delete_task': 'سڕینەوەی ئەرک',
-      'delete_confirm_prefix': 'دڵنیایت لە سڕینەوەی',
-      'cancel': 'پاشگەزبوونەوە',
-      'delete': 'سڕینەوە',
+      'delete_confirm_prefix': 'سڕینەوەی',
       'task_title_lbl': 'ناونیشانی ئەرک',
       'task_title_hint': 'بۆ نموونە: کڕینی پێداویستی ماڵەوە',
       'notes_lbl': 'تێبینییەکان (ئارەزوومەندانە)',
@@ -1304,6 +1308,13 @@ class AppState extends ChangeNotifier {
       'task_cat_entertainment': 'یاری و کات بەسەربردن',
       'task_cat_travel': 'گەشت و سەفەر',
       'task_cat_other': 'جۆراوجۆر',
+      'complete_and_log': 'تەواوکردن و تۆمارکردنی خەرجی',
+      'complete_only': 'تەنها وەک تەواوکراو نیشان بدە',
+      'log_tx_title': 'تۆمارکردنی پارەی ئەرک',
+      'actual_amount': 'بڕی خەرجکراو / وەرگیراوی ڕاستەقینە',
+      'tx_type': 'جۆری دارایی',
+      'spent_expense': 'خەرجی (پارەی دراو)',
+      'got_income': 'داهات (پارەی هاتوو)',
     }
   };
 
