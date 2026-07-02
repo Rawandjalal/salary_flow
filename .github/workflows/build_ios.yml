@@ -41,7 +41,7 @@ jobs:
 
       - name: Verify widget target in project
         run: |
-          grep -c "widgetkit-extension" ios/Runner.xcodeproj/project.pbxproj \
+          grep -c "SalaryFlowWidget" ios/Runner.xcodeproj/project.pbxproj \
             && echo "✅ WidgetKit target is in project.pbxproj" \
             || (echo "❌ WidgetKit target MISSING from project.pbxproj"; exit 1)
 
