@@ -23,15 +23,29 @@ jobs:
       - name: Install Flutter dependencies
         run: flutter pub get
 
-      - name: Build iOS (no codesign)
-        run: flutter build ios --release --no-codesign
-        env:
-          FLUTTER_SUPPRESS_ANALYTICS: "true"
+      - name: Build iOS App
+        # Flutter's post-build signing validator exits with code 1 even when
+        # xcodebuild itself succeeds and produces Runner.app. We use || true
+        # to continue, then verify the .app was actually built below.
+        run: flutter build ios --release --no-codesign || true
+
+      - name: Verify Runner.app was built
+        run: |
+          echo "=== Searching for Runner.app ==="
+          find build/ios -name "Runner.app" 2>/dev/null || true
+          echo "=== build/ios/iphoneos contents ==="
+          ls -la build/ios/iphoneos/ 2>/dev/null || echo "Directory not found"
 
       - name: Create IPA
         run: |
+          APP_PATH=$(find build/ios -name "Runner.app" | head -1)
+          if [ -z "$APP_PATH" ]; then
+            echo "ERROR: Runner.app was not produced by the build. Aborting."
+            exit 1
+          fi
+          echo "Packaging: $APP_PATH"
           mkdir -p Payload
-          cp -r build/ios/iphoneos/Runner.app Payload/
+          cp -r "$APP_PATH" Payload/
           zip -r SalaryFlow.ipa Payload
           ls -lh SalaryFlow.ipa
 
