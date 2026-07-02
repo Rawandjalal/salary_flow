@@ -478,6 +478,87 @@ class AppState extends ChangeNotifier {
     return days > 999 ? 999 : days;
   }
 
+  // Rolling Weekly & Yearly Metrics (Daily, Weekly, Monthly, Yearly Horizons)
+  double get weeklyExpensesUSD {
+    final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
+    return _transactions
+        .where((tx) => !tx.isIncome && tx.currency == 'USD' && tx.date.isAfter(sevenDaysAgo) && _matchesScope(tx))
+        .fold(0.0, (sum, tx) => sum + tx.amount);
+  }
+
+  double get weeklyExpensesIQD {
+    final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
+    return _transactions
+        .where((tx) => !tx.isIncome && tx.currency == 'IQD' && tx.date.isAfter(sevenDaysAgo) && _matchesScope(tx))
+        .fold(0.0, (sum, tx) => sum + tx.amount);
+  }
+
+  double get weeklyIncomeUSD {
+    final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
+    return _transactions
+        .where((tx) => tx.isIncome && tx.currency == 'USD' && tx.date.isAfter(sevenDaysAgo) && _matchesScope(tx))
+        .fold(0.0, (sum, tx) => sum + tx.amount);
+  }
+
+  double get weeklyIncomeIQD {
+    final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
+    return _transactions
+        .where((tx) => tx.isIncome && tx.currency == 'IQD' && tx.date.isAfter(sevenDaysAgo) && _matchesScope(tx))
+        .fold(0.0, (sum, tx) => sum + tx.amount);
+  }
+
+  double get remainingWeeklyBudgetUSD {
+    return (dailyAllowanceUSD * 7) + weeklyIncomeUSD - weeklyExpensesUSD;
+  }
+
+  double get remainingWeeklyBudgetIQD {
+    return (dailyAllowanceIQD * 7) + weeklyIncomeIQD - weeklyExpensesIQD;
+  }
+
+  double get remainingMonthlyBudgetUSD {
+    return (dailyAllowanceUSD * daysInMonth) + monthlyAdditionalIncomeUSD - monthlyExpensesSoFarUSD;
+  }
+
+  double get remainingMonthlyBudgetIQD {
+    return (dailyAllowanceIQD * daysInMonth) + monthlyAdditionalIncomeIQD - monthlyExpensesSoFarIQD;
+  }
+
+  double get yearlyExpensesUSD {
+    final yearAgo = DateTime.now().subtract(const Duration(days: 365));
+    return _transactions
+        .where((tx) => !tx.isIncome && tx.currency == 'USD' && tx.date.isAfter(yearAgo) && _matchesScope(tx))
+        .fold(0.0, (sum, tx) => sum + tx.amount);
+  }
+
+  double get yearlyExpensesIQD {
+    final yearAgo = DateTime.now().subtract(const Duration(days: 365));
+    return _transactions
+        .where((tx) => !tx.isIncome && tx.currency == 'IQD' && tx.date.isAfter(yearAgo) && _matchesScope(tx))
+        .fold(0.0, (sum, tx) => sum + tx.amount);
+  }
+
+  double get yearlyIncomeUSD {
+    final yearAgo = DateTime.now().subtract(const Duration(days: 365));
+    return _transactions
+        .where((tx) => tx.isIncome && tx.currency == 'USD' && tx.date.isAfter(yearAgo) && _matchesScope(tx))
+        .fold(0.0, (sum, tx) => sum + tx.amount);
+  }
+
+  double get yearlyIncomeIQD {
+    final yearAgo = DateTime.now().subtract(const Duration(days: 365));
+    return _transactions
+        .where((tx) => tx.isIncome && tx.currency == 'IQD' && tx.date.isAfter(yearAgo) && _matchesScope(tx))
+        .fold(0.0, (sum, tx) => sum + tx.amount);
+  }
+
+  double get remainingYearlyBudgetUSD {
+    return (dailyAllowanceUSD * 365) + yearlyIncomeUSD - yearlyExpensesUSD;
+  }
+
+  double get remainingYearlyBudgetIQD {
+    return (dailyAllowanceIQD * 365) + yearlyIncomeIQD - yearlyExpensesIQD;
+  }
+
   // 14. Financial Health Score (0-100)
   int get financialHealthScoreUSD {
     final income = totalMonthlyIncomeUSD;
@@ -722,6 +803,14 @@ class AppState extends ChangeNotifier {
       'iqd_received': 'IQD (د.ع) Received Today',
       'notes': 'Notes / Context',
       'daily_sales_notes': 'Shop daily sales and revenues',
+      'daily': 'Daily',
+      'weekly': 'Weekly',
+      'monthly': 'Monthly',
+      'yearly': 'Yearly',
+      'budget_horizons': 'Budget Time Horizons',
+      'budget_horizons_desc': 'Your remaining balance & allowance across different terms',
+      'remaining': 'Remaining',
+      'limit': 'Limit',
       'budget_mode': 'Daily Budget Mode',
       'auto_budget': 'Auto-Calculate from Monthly Income',
       'manual_budget': 'Set Manual Budget Per Day',
@@ -891,6 +980,14 @@ class AppState extends ChangeNotifier {
       'iqd_received': 'کۆی دیناری وەرگیراو (د.ع)',
       'notes': 'تێبینی / سەرنج',
       'daily_sales_notes': 'داهات و فرۆشی ڕۆژانەی دوکان/کۆمپانیا',
+      'daily': 'ڕۆژانە',
+      'weekly': 'هەفتانە',
+      'monthly': 'مانگانە',
+      'yearly': 'ساڵانە',
+      'budget_horizons': 'مەودای کاتی بودجە',
+      'budget_horizons_desc': 'بودجەی ماوە و ڕێژەی خەرجکردن بۆ ماوە جیاوازەکان',
+      'remaining': 'ماوەی بودجە',
+      'limit': 'سنووری بودجە',
       'budget_mode': 'شێوازی بودجەی ڕۆژانە',
       'auto_budget': 'ئۆتۆماتیکی لەسەر بنەمای داهاتی مانگانە',
       'manual_budget': 'دەستنیشانکردنی دەستی ڕۆژانە',

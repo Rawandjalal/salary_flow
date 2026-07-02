@@ -23,6 +23,7 @@ class DashboardPage extends StatefulWidget {
 
 class _DashboardPageState extends State<DashboardPage> {
   String _activeWallet = 'USD'; // 'USD' or 'IQD'
+  bool _showGuide = false; // Expanding guide/tips box state
 
   void _showLogDailyEarnings(BuildContext context) {
     showDialog(
@@ -58,10 +59,146 @@ class _DashboardPageState extends State<DashboardPage> {
     final width = MediaQuery.of(context).size.width;
     final isWide = width > 768; // Responsiveness break point for desktop/web view
 
+    // Onboarding / Tips Guide Card
+    final tipsGuideCard = GlassCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          GestureDetector(
+            onTap: () => setState(() => _showGuide = !_showGuide),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.tips_and_updates_rounded, color: Colors.amberAccent, size: 20),
+                    const SizedBox(width: 10),
+                    Text(
+                      appState.isRtl ? 'ڕێبەری خێرا و ئامۆژگاری' : 'Quick Guide & Tips',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.white),
+                    ),
+                  ],
+                ),
+                Icon(
+                  _showGuide ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+                  color: Colors.white54,
+                  size: 20,
+                ),
+              ],
+            ),
+          ),
+          if (_showGuide) ...[
+            const SizedBox(height: 14),
+            Divider(color: Colors.white.withOpacity(0.08)),
+            const SizedBox(height: 8),
+            _buildGuideItem(
+              Icons.account_balance_wallet_rounded,
+              Colors.cyanAccent,
+              appState.isRtl ? 'گۆڕینی جزدان' : 'Switch Wallets',
+              appState.isRtl 
+                  ? 'لەسەرەوە دۆلار یان دینار هەڵبژێرە بۆ بینینی بودجە بە هەردوو دراو.'
+                  : 'Tap USD or IQD wallet above to swap currencies dynamically.',
+            ),
+            _buildGuideItem(
+              Icons.today_rounded,
+              Colors.greenAccent,
+              appState.isRtl ? 'بودجەی ڕۆژانە' : 'Daily Allowance',
+              appState.isRtl 
+                  ? 'بودجەی ماوەی ئەمڕۆتە؛ تۆمارکردنی خەرجی کەمیدەکاتەوە و داهات زیادیدەکات.'
+                  : 'Your daily remaining budget. Spends decrease it, incomes/sales increase it.',
+            ),
+            _buildGuideItem(
+              Icons.view_headline_rounded,
+              Colors.amberAccent,
+              appState.isRtl ? 'مەودای بودجە' : 'Time Horizons',
+              appState.isRtl 
+                  ? 'خەرجییەکانت بۆ ماوەی ڕۆژانە، هەفتانە، مانگانە، و ساڵانە بە ئاسانی کۆنترۆڵ بکە.'
+                  : 'Track your spending levels across Daily, Weekly, Monthly, and Yearly intervals.',
+            ),
+            _buildGuideItem(
+              Icons.people_rounded,
+              Colors.blueAccent,
+              appState.isRtl ? 'لیستی مووچە' : 'Daily Payroll',
+              appState.isRtl 
+                  ? 'داگرە لەسەر دوگمەی مووچە بۆ دیاریکردنی ئامادەبوونی کارمەند و مووچەی دەستی.'
+                  : 'Use Staff Payroll below to record employee attendance and custom daily wages.',
+            ),
+          ],
+        ],
+      ),
+    );
+
+    // Time Horizons Card
+    final remainingWeekly = isUsd ? appState.remainingWeeklyBudgetUSD : appState.remainingWeeklyBudgetIQD;
+    final remainingMonthly = isUsd ? appState.remainingMonthlyBudgetUSD : appState.remainingMonthlyBudgetIQD;
+    final remainingYearly = isUsd ? appState.remainingYearlyBudgetUSD : appState.remainingYearlyBudgetIQD;
+
+    final limitDaily = dailyAllowance;
+    final limitWeekly = dailyAllowance * 7;
+    final limitMonthly = dailyAllowance * appState.daysInMonth;
+    final limitYearly = dailyAllowance * 365;
+
+    final timeHorizonsCard = GlassCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            appState.t('budget_horizons'),
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.white),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            appState.t('budget_horizons_desc'),
+            style: TextStyle(fontSize: 10.5, color: Colors.white.withOpacity(0.5)),
+          ),
+          const SizedBox(height: 16),
+          _buildHorizonRow(
+            label: appState.t('daily'),
+            remaining: remainingDaily,
+            limit: limitDaily,
+            formatter: currencyFormat,
+            color: const Color(0xFF10B981),
+            isRtl: appState.isRtl,
+          ),
+          const SizedBox(height: 10),
+          _buildHorizonRow(
+            label: appState.t('weekly'),
+            remaining: remainingWeekly,
+            limit: limitWeekly,
+            formatter: currencyFormat,
+            color: Colors.blueAccent,
+            isRtl: appState.isRtl,
+          ),
+          const SizedBox(height: 10),
+          _buildHorizonRow(
+            label: appState.t('monthly'),
+            remaining: remainingMonthly,
+            limit: limitMonthly,
+            formatter: currencyFormat,
+            color: Colors.purpleAccent,
+            isRtl: appState.isRtl,
+          ),
+          const SizedBox(height: 10),
+          _buildHorizonRow(
+            label: appState.t('yearly'),
+            remaining: remainingYearly,
+            limit: limitYearly,
+            formatter: currencyFormat,
+            color: Colors.orangeAccent,
+            isRtl: appState.isRtl,
+          ),
+        ],
+      ),
+    );
+
     // Left Column content (on wide screens)
     final Widget leftColumn = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        tipsGuideCard,
+        const SizedBox(height: 14),
         // Dynamic Budget Ring Card
         GlassCard(
           child: Column(
@@ -75,6 +212,8 @@ class _DashboardPageState extends State<DashboardPage> {
             ],
           ),
         ),
+        const SizedBox(height: 14),
+        timeHorizonsCard,
       ],
     );
 
@@ -695,6 +834,99 @@ class _DashboardPageState extends State<DashboardPage> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildGuideItem(IconData icon, Color color, String title, String subtitle) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: color, size: 16),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Colors.white),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.5), height: 1.3),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHorizonRow({
+    required String label,
+    required double remaining,
+    required double limit,
+    required NumberFormat formatter,
+    required Color color,
+    required bool isRtl,
+  }) {
+    final double spent = limit - remaining;
+    final double ratio = limit > 0 ? (spent / limit).clamp(0.0, 1.0) : 0.0;
+    final percent = (ratio * 100).toStringAsFixed(0);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Colors.white70),
+              ),
+              Text(
+                '${formatter.format(remaining)} / ${formatter.format(limit)}',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: remaining >= 0 ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: ratio,
+              backgroundColor: Colors.white.withOpacity(0.05),
+              valueColor: AlwaysStoppedAnimation<Color>(color),
+              minHeight: 5,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Align(
+            alignment: isRtl ? Alignment.centerLeft : Alignment.centerRight,
+            child: Text(
+              isRtl ? '%$percent خەرجکراوە' : '$percent% spent',
+              style: TextStyle(fontSize: 9, color: Colors.white.withOpacity(0.35)),
+            ),
+          ),
+        ],
       ),
     );
   }
