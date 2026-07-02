@@ -14,26 +14,25 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Java
-        uses: actions/setup-java@v3
-        with:
-          distribution: 'zulu'
-          java-version: '17'
-
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.38.7'
           channel: 'stable'
+          cache: true
 
-      - name: Install dependencies
+      - name: Show Flutter version
+        run: flutter --version
+
+      - name: Install Flutter dependencies
+        run: flutter pub get
+
+      - name: Install CocoaPods dependencies
         run: |
-          flutter pub get
           cd ios
-          pod repo update || true
+          pod install --repo-update
 
-      - name: Build iOS App Bundle
-        run: flutter build ios --no-codesign -v
+      - name: Build iOS App (no codesign)
+        run: flutter build ios --release --no-codesign
 
       - name: Create IPA Structure
         run: |
@@ -46,3 +45,4 @@ jobs:
         with:
           name: SalaryFlow-iOS-IPA
           path: SalaryFlow.ipa
+          retention-days: 30
