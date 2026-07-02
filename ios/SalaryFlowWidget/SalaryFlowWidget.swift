@@ -309,7 +309,7 @@ struct SalaryFlowWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: BalanceProvider()) { entry in
             SalaryFlowWidgetEntryView(entry: entry)
-                .containerBackground(Color.sfBg, for: .widget)
+                .widgetBackground(Color.sfBg)
         }
         .configurationDisplayName("SalaryFlow")
         .description("Balance, daily budget & runway at a glance.")
@@ -326,3 +326,15 @@ struct SalaryFlowWidget: Widget {
         return [.systemSmall, .systemMedium]
     }
 }
+
+extension View {
+    @ViewBuilder
+    func widgetBackground(_ color: Color) -> some View {
+        if #available(iOS 17.0, *) {
+            self.containerBackground(color, for: .widget)
+        } else {
+            self.background(color)
+        }
+    }
+}
+
