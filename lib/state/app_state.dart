@@ -6,6 +6,7 @@ import '../models/staff_member.dart';
 import '../models/planners_models.dart';
 import '../models/task.dart';
 import '../services/storage_service.dart';
+import '../services/widget_data_service.dart';
 
 class AppState extends ChangeNotifier {
   final StorageService _storageService;
@@ -211,24 +212,51 @@ class AppState extends ChangeNotifier {
 
     _isLoading = false;
     notifyListeners();
+    _pushWidgetData();
   }
 
   Future<void> updateSalaryConfig(SalaryConfig config) async {
     _salaryConfig = config;
     await _storageService.saveSalaryConfig(_salaryConfig);
     notifyListeners();
+    _pushWidgetData();
   }
 
   Future<void> addTransaction(Transaction transaction) async {
     _transactions.insert(0, transaction);
     await _storageService.saveTransactions(_transactions);
     notifyListeners();
+    _pushWidgetData();
   }
 
   Future<void> deleteTransaction(String id) async {
     _transactions.removeWhere((tx) => tx.id == id);
     await _storageService.saveTransactions(_transactions);
     notifyListeners();
+    _pushWidgetData();
+  }
+
+  // ─── Widget Data Sync ────────────────────────────────────────────────────
+  void _pushWidgetData() {
+    // Snapshot the key metrics; use the 'all' scope values for the widget.
+    final String lastTx = _transactions.isEmpty
+        ? '—'
+        : (() {
+            final tx = _transactions.first;
+            final sign = tx.isIncome ? '+' : '-';
+            final amt  = tx.amount.toStringAsFixed(2);
+            final cur  = tx.currency;
+            return '${tx.title}  $sign$amt $cur';
+          })();
+
+    WidgetDataService.update(
+      balanceUsd:      remainingDisposableBalanceUSD,
+      balanceIqd:      remainingDisposableBalanceIQD,
+      dailyBudgetUsd:  remainingDailyBudgetUSD,
+      dailyBudgetIqd:  remainingDailyBudgetIQD,
+      runwayDays:      runwayForecastDaysUSD,
+      lastTransaction: lastTx,
+    );
   }
 
   // ─── Financial Tasks ──────────────────────────────────────────────────────

@@ -23,6 +23,12 @@ jobs:
       - name: Install Flutter dependencies
         run: flutter pub get
 
+      - name: Install xcodeproj gem
+        run: gem install xcodeproj --no-document
+
+      - name: Add WidgetKit extension target
+        run: ruby ios/add_widget_target.rb
+
       - name: Build iOS App
         # Flutter exits with code 1 after xcodebuild succeeds because of its
         # own signing validator. We suppress that exit code with || true.
