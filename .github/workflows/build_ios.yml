@@ -23,8 +23,10 @@ jobs:
       - name: Install Flutter dependencies
         run: flutter pub get
 
-      - name: Build iOS App (no codesign)
+      - name: Build iOS (no codesign)
         run: flutter build ios --release --no-codesign
+        env:
+          FLUTTER_SUPPRESS_ANALYTICS: "true"
 
       - name: Create IPA
         run: |
@@ -39,4 +41,3 @@ jobs:
           name: SalaryFlow-iOS-IPA
           path: SalaryFlow.ipa
           retention-days: 30
-
