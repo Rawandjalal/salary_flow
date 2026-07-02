@@ -24,45 +24,71 @@ jobs:
         run: flutter pub get
 
       - name: Build iOS App
-        # Flutter exits with code 1 after a successful xcodebuild due to
-        # its own signing validator. The complete Runner.app is placed by
-        # xcodebuild into build/ios/Build/Products/Release-iphoneos/
-        # BEFORE Flutter's signing check runs. We use || true to continue.
-        run: flutter build ios --release --no-codesign || true
+        # Flutter exits with code 1 after xcodebuild succeeds because of its
+        # own signing validator. We suppress that exit code with || true.
+        # The fully-built Runner.app (with Info.plist) lives in DerivedData.
+        run: flutter build ios --release --no-codesign 2>&1 | tee flutter_build.log || true
 
-      - name: Locate and verify Runner.app
+      - name: Find Runner.app (debug)
         run: |
-          echo "=== Searching all possible output paths ==="
+          echo "=== In build/ directory ==="
           find build/ios -name "Runner.app" -type d 2>/dev/null | while read p; do
-            echo "Found: $p"
-            echo "  Info.plist exists: $(test -f "$p/Info.plist" && echo YES || echo NO)"
+            echo "  Path : $p"
+            echo "  Files: $(ls "$p" 2>/dev/null | wc -l | tr -d ' ') file(s)"
+            echo "  Info.plist: $(test -f "$p/Info.plist" && echo YES || echo NO)"
+            ls "$p" 2>/dev/null | head -10 || true
+          done
+          echo ""
+          echo "=== In DerivedData (Release-iphoneos) ==="
+          find ~/Library/Developer/Xcode/DerivedData -name "Runner.app" \
+            -path "*/Release-iphoneos/*" \
+            -not -path "*/Index.noindex/*" 2>/dev/null | while read p; do
+            echo "  Path : $p"
+            echo "  Info.plist: $(test -f "$p/Info.plist" && echo YES || echo NO)"
           done
 
       - name: Create IPA
         run: |
-          # Flutter's xcodebuild output is here (complete, with Info.plist)
-          PRIMARY="build/ios/Build/Products/Release-iphoneos/Runner.app"
-          FALLBACK=$(find build/ios -name "Runner.app" -type d 2>/dev/null | \
+          # ── 1. Best source: DerivedData (xcodebuild's own complete output) ──
+          DERIVED_APP=$(
+            find ~/Library/Developer/Xcode/DerivedData -name "Runner.app" \
+              -path "*/Release-iphoneos/*" \
+              -not -path "*/Index.noindex/*" 2>/dev/null |
             while read p; do
-              if [ -f "$p/Info.plist" ]; then echo "$p"; break; fi
-            done)
+              [ -f "$p/Info.plist" ] && echo "$p" && break
+            done
+          )
 
-          if [ -d "$PRIMARY" ] && [ -f "$PRIMARY/Info.plist" ]; then
-            APP_PATH="$PRIMARY"
-          elif [ -n "$FALLBACK" ]; then
-            APP_PATH="$FALLBACK"
+          # ── 2. Fallback: anywhere under build/ with a real Info.plist ──
+          BUILD_APP=$(
+            find build/ios -name "Runner.app" -type d 2>/dev/null |
+            while read p; do
+              [ -f "$p/Info.plist" ] && echo "$p" && break
+            done
+          )
+
+          if [ -n "$DERIVED_APP" ]; then
+            APP_PATH="$DERIVED_APP"
+            echo "✓ Using DerivedData app: $APP_PATH"
+          elif [ -n "$BUILD_APP" ]; then
+            APP_PATH="$BUILD_APP"
+            echo "✓ Using build-dir app:  $APP_PATH"
           else
-            echo "ERROR: No complete Runner.app (with Info.plist) found"
-            find build/ios -name "Runner.app" 2>/dev/null
+            echo "ERROR: No Runner.app with Info.plist found anywhere."
+            echo "--- flutter_build.log tail ---"
+            tail -30 flutter_build.log || true
             exit 1
           fi
 
-          echo "Packaging app from: $APP_PATH"
+          echo "=== App bundle contents ==="
+          ls -lh "$APP_PATH" | head -20
+
           mkdir -p Payload
           cp -r "$APP_PATH" Payload/Runner.app
-          zip -r SalaryFlow.ipa Payload
-          echo "=== IPA Contents (top-level) ==="
-          unzip -l SalaryFlow.ipa | grep "Info.plist" || echo "WARNING: Info.plist not found in IPA"
+          zip -qr SalaryFlow.ipa Payload
+
+          echo "=== IPA Info.plist check ==="
+          unzip -l SalaryFlow.ipa | grep "Info.plist"
           ls -lh SalaryFlow.ipa
 
       - name: Upload IPA Artifact
