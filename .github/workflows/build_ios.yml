@@ -27,10 +27,13 @@ jobs:
           channel: 'stable'
 
       - name: Install dependencies
-        run: flutter pub get
+        run: |
+          flutter pub get
+          cd ios
+          pod repo update || true
 
       - name: Build iOS App Bundle
-        run: flutter build ios --no-codesign
+        run: flutter build ios --no-codesign -v
 
       - name: Create IPA Structure
         run: |
