@@ -4,6 +4,7 @@ import '../models/transaction.dart';
 import '../models/salary_config.dart';
 import '../models/staff_member.dart';
 import '../models/planners_models.dart';
+import '../models/task.dart';
 import '../services/storage_service.dart';
 
 class AppState extends ChangeNotifier {
@@ -33,6 +34,9 @@ class AppState extends ChangeNotifier {
   double _targetMonthlyRevenueUSD = 5000.0;
   double _targetMonthlyRevenueIQD = 7500000.0;
 
+  // Financial Tasks (with notifications)
+  List<FinancialTask> _financialTasks = [];
+
   AppState(this._storageService) {
     _loadFromStorage();
   }
@@ -53,6 +57,9 @@ class AppState extends ChangeNotifier {
   List<BusinessMilestone> get businessMilestones => _businessMilestones;
   double get targetMonthlyRevenueUSD => _targetMonthlyRevenueUSD;
   double get targetMonthlyRevenueIQD => _targetMonthlyRevenueIQD;
+
+  // Financial Tasks getter
+  List<FinancialTask> get financialTasks => List.unmodifiable(_financialTasks);
 
   void setGeminiApiKey(String key) {
     _geminiApiKey = key;
@@ -193,6 +200,15 @@ class AppState extends ChangeNotifier {
     _targetMonthlyRevenueUSD = _storageService.getDouble('target_monthly_revenue_usd') ?? 5000.0;
     _targetMonthlyRevenueIQD = _storageService.getDouble('target_monthly_revenue_iqd') ?? 7500000.0;
 
+    // Load Financial Tasks
+    final financialTasksStr = _storageService.getString('financial_tasks');
+    if (financialTasksStr != null && financialTasksStr.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(financialTasksStr) as List;
+        _financialTasks = decoded.map((e) => FinancialTask.fromJson(e as Map<String, dynamic>)).toList();
+      } catch (_) {}
+    }
+
     _isLoading = false;
     notifyListeners();
   }
@@ -213,6 +229,45 @@ class AppState extends ChangeNotifier {
     _transactions.removeWhere((tx) => tx.id == id);
     await _storageService.saveTransactions(_transactions);
     notifyListeners();
+  }
+
+  // ─── Financial Tasks ──────────────────────────────────────────────────────
+
+  Future<void> _saveFinancialTasks() async {
+    final str = jsonEncode(_financialTasks.map((t) => t.toJson()).toList());
+    await _storageService.saveString('financial_tasks', str);
+  }
+
+  Future<void> addFinancialTask(FinancialTask task) async {
+    _financialTasks.insert(0, task);
+    await _saveFinancialTasks();
+    notifyListeners();
+  }
+
+  Future<void> updateFinancialTask(FinancialTask task) async {
+    final idx = _financialTasks.indexWhere((t) => t.id == task.id);
+    if (idx != -1) {
+      _financialTasks[idx] = task;
+      await _saveFinancialTasks();
+      notifyListeners();
+    }
+  }
+
+  Future<void> deleteFinancialTask(String id) async {
+    _financialTasks.removeWhere((t) => t.id == id);
+    await _saveFinancialTasks();
+    notifyListeners();
+  }
+
+  Future<void> toggleFinancialTask(String id) async {
+    final idx = _financialTasks.indexWhere((t) => t.id == id);
+    if (idx != -1) {
+      _financialTasks[idx] = _financialTasks[idx].copyWith(
+        isCompleted: !_financialTasks[idx].isCompleted,
+      );
+      await _saveFinancialTasks();
+      notifyListeners();
+    }
   }
 
   Future<void> _saveStaffMembers() async {

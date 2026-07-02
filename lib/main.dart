@@ -3,17 +3,19 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'services/storage_service.dart';
+import 'services/notification_service.dart';
 import 'state/app_state.dart';
 import 'pages/dashboard_page.dart';
 import 'pages/transactions_page.dart';
 import 'pages/analysis_page.dart';
 import 'pages/settings_page.dart';
-
+import 'pages/tasks_page.dart';
 import 'pages/planners_page.dart';
 import 'widgets/add_transaction_sheet.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await NotificationService.instance.init();
   final storageService = await StorageService.init();
   runApp(
     ChangeNotifierProvider(
@@ -72,29 +74,19 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
   String _getNavLabel(int index, bool isRtl) {
     if (isRtl) {
       switch (index) {
-        case 0:
-          return 'سەرەکی';
-        case 1:
-          return 'تۆمارەکان';
-        case 2:
-          return 'پلانەکان';
-        case 3:
-          return 'شیکاری';
-        case 4:
-          return 'ڕێکخستنەکان';
+        case 0: return 'سەرەکی';
+        case 1: return 'تۆمارەکان';
+        case 2: return 'ئەرکەکان';
+        case 3: return 'شیکاری';
+        case 4: return 'ڕێکخستنەکان';
       }
     } else {
       switch (index) {
-        case 0:
-          return 'Home';
-        case 1:
-          return 'History';
-        case 2:
-          return 'Planners';
-        case 3:
-          return 'Analysis';
-        case 4:
-          return 'Settings';
+        case 0: return 'Home';
+        case 1: return 'History';
+        case 2: return 'Tasks';
+        case 3: return 'Analysis';
+        case 4: return 'Settings';
       }
     }
     return '';
@@ -122,13 +114,11 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
     final List<Widget> pages = [
       DashboardPage(
         onViewAllTransactions: () {
-          setState(() {
-            _currentIndex = 1;
-          });
+          setState(() { _currentIndex = 1; });
         },
       ),
       const TransactionsPage(),
-      const PlannersPage(),
+      const TasksPage(),
       const AnalysisPage(),
       const SettingsPage(),
     ];
@@ -187,7 +177,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                 children: [
                   _buildNavItem(0, Icons.grid_view_rounded, _getNavLabel(0, isRtl)),
                   _buildNavItem(1, Icons.receipt_long_rounded, _getNavLabel(1, isRtl)),
-                  _buildNavItem(2, Icons.next_plan_rounded, _getNavLabel(2, isRtl)),
+                  _buildNavItem(2, Icons.task_alt_rounded, _getNavLabel(2, isRtl)),
                   _buildNavItem(3, Icons.analytics_rounded, _getNavLabel(3, isRtl)),
                   _buildNavItem(4, Icons.settings_rounded, _getNavLabel(4, isRtl)),
                 ],

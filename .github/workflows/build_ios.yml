@@ -24,29 +24,45 @@ jobs:
         run: flutter pub get
 
       - name: Build iOS App
-        # Flutter's post-build signing validator exits with code 1 even when
-        # xcodebuild itself succeeds and produces Runner.app. We use || true
-        # to continue, then verify the .app was actually built below.
+        # Flutter exits with code 1 after a successful xcodebuild due to
+        # its own signing validator. The complete Runner.app is placed by
+        # xcodebuild into build/ios/Build/Products/Release-iphoneos/
+        # BEFORE Flutter's signing check runs. We use || true to continue.
         run: flutter build ios --release --no-codesign || true
 
-      - name: Verify Runner.app was built
+      - name: Locate and verify Runner.app
         run: |
-          echo "=== Searching for Runner.app ==="
-          find build/ios -name "Runner.app" 2>/dev/null || true
-          echo "=== build/ios/iphoneos contents ==="
-          ls -la build/ios/iphoneos/ 2>/dev/null || echo "Directory not found"
+          echo "=== Searching all possible output paths ==="
+          find build/ios -name "Runner.app" -type d 2>/dev/null | while read p; do
+            echo "Found: $p"
+            echo "  Info.plist exists: $(test -f "$p/Info.plist" && echo YES || echo NO)"
+          done
 
       - name: Create IPA
         run: |
-          APP_PATH=$(find build/ios -name "Runner.app" | head -1)
-          if [ -z "$APP_PATH" ]; then
-            echo "ERROR: Runner.app was not produced by the build. Aborting."
+          # Flutter's xcodebuild output is here (complete, with Info.plist)
+          PRIMARY="build/ios/Build/Products/Release-iphoneos/Runner.app"
+          FALLBACK=$(find build/ios -name "Runner.app" -type d 2>/dev/null | \
+            while read p; do
+              if [ -f "$p/Info.plist" ]; then echo "$p"; break; fi
+            done)
+
+          if [ -d "$PRIMARY" ] && [ -f "$PRIMARY/Info.plist" ]; then
+            APP_PATH="$PRIMARY"
+          elif [ -n "$FALLBACK" ]; then
+            APP_PATH="$FALLBACK"
+          else
+            echo "ERROR: No complete Runner.app (with Info.plist) found"
+            find build/ios -name "Runner.app" 2>/dev/null
             exit 1
           fi
-          echo "Packaging: $APP_PATH"
+
+          echo "Packaging app from: $APP_PATH"
           mkdir -p Payload
-          cp -r "$APP_PATH" Payload/
+          cp -r "$APP_PATH" Payload/Runner.app
           zip -r SalaryFlow.ipa Payload
+          echo "=== IPA Contents (top-level) ==="
+          unzip -l SalaryFlow.ipa | grep "Info.plist" || echo "WARNING: Info.plist not found in IPA"
           ls -lh SalaryFlow.ipa
 
       - name: Upload IPA Artifact
