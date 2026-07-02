@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../state/app_state.dart';
 import '../widgets/transaction_tile.dart';
@@ -15,17 +14,34 @@ class TransactionsPage extends StatefulWidget {
 class _TransactionsPageState extends State<TransactionsPage> {
   String _searchQuery = '';
   String _selectedFilter = 'All'; // 'All', 'Income', 'Expense'
+  String _selectedScopeFilter = 'All'; // 'All', 'Personal', 'Business'
   String _selectedCategory = 'All';
 
   final List<String> _allCategories = [
     'All',
+    // Personal
     'Food',
     'Transport',
     'Rent',
     'Entertainment',
     'Shopping',
     'Utilities',
-    'Salary',
+    'Medical',
+    'Education',
+    'Gift',
+    // Business
+    'Inventory/Stock',
+    'Rent/Office',
+    'Marketing/Ads',
+    'Salaries/Wages',
+    'Software/Tools',
+    'Logistics/Shipping',
+    'Taxes/Fees',
+    'Office Supplies',
+    'Sales/Revenue',
+    'Service/Consulting',
+    'Capital Deposit',
+    'Refund/Return',
     'Other'
   ];
 
@@ -34,6 +50,13 @@ class _TransactionsPageState extends State<TransactionsPage> {
     if (filter == 'All') return appState.isRtl ? 'هەموو' : 'All';
     if (filter == 'Income') return appState.t('income');
     return appState.t('expense');
+  }
+
+  String _getScopeTranslation(BuildContext context, String scope) {
+    final appState = Provider.of<AppState>(context, listen: false);
+    if (scope == 'All') return appState.isRtl ? 'هەموو بوارەکان' : 'All Scopes';
+    if (scope == 'Personal') return appState.t('personal');
+    return appState.t('business');
   }
 
   String _getCategoryTranslation(BuildContext context, String category) {
@@ -54,34 +77,66 @@ class _TransactionsPageState extends State<TransactionsPage> {
         return appState.t('utilities');
       case 'Salary':
         return appState.t('salary');
+      case 'Medical':
+        return appState.t('medical');
+      case 'Education':
+        return appState.t('education');
+      case 'Gift':
+        return appState.t('gift');
+      case 'Freelance/Side Hustle':
+        return appState.t('freelance');
+      case 'Investments':
+        return appState.t('investments');
+      case 'Inventory/Stock':
+        return appState.t('inventory');
+      case 'Rent/Office':
+        return appState.isRtl ? 'کرێ/پسوولە' : 'Rent / Office';
+      case 'Marketing/Ads':
+        return appState.t('marketing');
+      case 'Salaries/Wages':
+        return appState.t('salaries');
+      case 'Software/Tools':
+        return appState.t('software');
+      case 'Logistics/Shipping':
+        return appState.t('logistics');
+      case 'Taxes/Fees':
+        return appState.t('taxes');
+      case 'Office Supplies':
+        return appState.t('office_supplies');
+      case 'Sales/Revenue':
+        return appState.t('sales_revenue');
+      case 'Service/Consulting':
+        return appState.t('service_consulting');
+      case 'Capital Deposit':
+        return appState.t('capital');
+      case 'Refund/Return':
+        return appState.t('refund');
       default:
         return appState.t('other');
     }
-  }
-
-  void _copyCsvReport(BuildContext context, AppState appState) {
-    final csvData = appState.exportToCsv();
-    Clipboard.setData(ClipboardData(text: csvData));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(appState.t('copied')),
-        backgroundColor: const Color(0xFF10B981),
-      ),
-    );
   }
 
   @override
   Widget build(BuildContext context) {
     final appState = context.watch<AppState>();
 
-    final filteredTransactions = appState.transactions.where((tx) {
-      final matchesSearch = tx.title.toLowerCase().contains(_searchQuery.toLowerCase());
+    // Query filters run against appState.allTransactions for historical queries
+    final filteredTransactions = appState.allTransactions.where((tx) {
+      final matchesSearch = tx.title.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+          tx.description.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+          tx.contact.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+          tx.category.toLowerCase().contains(_searchQuery.toLowerCase());
+
       final matchesType = _selectedFilter == 'All' ||
           (_selectedFilter == 'Income' && tx.isIncome) ||
           (_selectedFilter == 'Expense' && !tx.isIncome);
+
       final matchesCategory = _selectedCategory == 'All' || tx.category == _selectedCategory;
 
-      return matchesSearch && matchesType && matchesCategory;
+      final matchesScope = _selectedScopeFilter == 'All' ||
+          tx.scope.toLowerCase() == _selectedScopeFilter.toLowerCase();
+
+      return matchesSearch && matchesType && matchesCategory && matchesScope;
     }).toList();
 
     return Scaffold(
@@ -131,7 +186,7 @@ class _TransactionsPageState extends State<TransactionsPage> {
 
               // Search Bar
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
                 child: TextField(
                   style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
                   onChanged: (val) {
@@ -140,8 +195,8 @@ class _TransactionsPageState extends State<TransactionsPage> {
                     });
                   },
                   decoration: InputDecoration(
-                    hintText: appState.isRtl ? 'گەڕان بۆ مامەڵەکان...' : 'Search transactions...',
-                    hintStyle: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 14),
+                    hintText: appState.isRtl ? 'گەڕان (ناونیشان، لایەن، تێبینی)...' : 'Search (title, contact, notes)...',
+                    hintStyle: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 13.5),
                     prefixIcon: Icon(Icons.search_rounded, color: Colors.white.withOpacity(0.3)),
                     filled: true,
                     fillColor: Colors.white.withOpacity(0.04),
@@ -154,9 +209,23 @@ class _TransactionsPageState extends State<TransactionsPage> {
                 ),
               ),
 
+              // Scope Filter Tabs (All Scopes / Personal / Business)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                child: Row(
+                  children: [
+                    _buildScopeTab('All'),
+                    const SizedBox(width: 8),
+                    _buildScopeTab('Personal'),
+                    const SizedBox(width: 8),
+                    _buildScopeTab('Business'),
+                  ],
+                ),
+              ),
+
               // Filter Tabs (All / Income / Expense)
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
                 child: Row(
                   children: [
                     _buildFilterTab('All'),
@@ -170,7 +239,7 @@ class _TransactionsPageState extends State<TransactionsPage> {
 
               // Categories List (Horizontal Scroll)
               Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
+                padding: const EdgeInsets.symmetric(vertical: 6),
                 child: SizedBox(
                   height: 38,
                   child: ListView.builder(
@@ -206,7 +275,7 @@ class _TransactionsPageState extends State<TransactionsPage> {
                             style: TextStyle(
                               color: isSelected ? Colors.white : Colors.white.withOpacity(0.6),
                               fontWeight: FontWeight.w700,
-                              fontSize: 13,
+                              fontSize: 12.5,
                             ),
                           ),
                         ),
@@ -215,7 +284,7 @@ class _TransactionsPageState extends State<TransactionsPage> {
                   ),
                 ),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 6),
 
               // Transaction List
               Expanded(
@@ -269,7 +338,7 @@ class _TransactionsPageState extends State<TransactionsPage> {
           });
         },
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12),
+          padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
             color: isSelected ? Colors.white.withOpacity(0.08) : Colors.transparent,
             borderRadius: BorderRadius.circular(14),
@@ -283,7 +352,51 @@ class _TransactionsPageState extends State<TransactionsPage> {
             style: TextStyle(
               color: isSelected ? Colors.white : Colors.white.withOpacity(0.4),
               fontWeight: FontWeight.w700,
-              fontSize: 14,
+              fontSize: 13,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildScopeTab(String scope) {
+    final isSelected = _selectedScopeFilter == scope;
+    final isBusiness = scope == 'Business';
+    Color activeBg = Colors.white.withOpacity(0.08);
+    Color activeText = Colors.white;
+    if (isSelected) {
+      if (isBusiness) {
+        activeBg = const Color(0xFF10B981).withOpacity(0.12);
+        activeText = const Color(0xFF10B981);
+      }
+    }
+
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          setState(() {
+            _selectedScopeFilter = scope;
+          });
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: isSelected ? activeBg : Colors.transparent,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: isSelected 
+                  ? (isBusiness ? const Color(0xFF10B981).withOpacity(0.25) : Colors.white.withOpacity(0.12))
+                  : Colors.transparent,
+            ),
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            _getScopeTranslation(context, scope),
+            style: TextStyle(
+              color: isSelected ? activeText : Colors.white.withOpacity(0.4),
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
             ),
           ),
         ),

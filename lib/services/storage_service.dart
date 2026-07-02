@@ -47,6 +47,15 @@ class StorageService {
     await _prefs.setString(_keySalaryConfig, config.toJson());
   }
 
+  // Generic String Getters & Setters
+  String? getString(String key) {
+    return _prefs.getString(key);
+  }
+
+  Future<void> saveString(String key, String value) async {
+    await _prefs.setString(key, value);
+  }
+
   // Clear data
   Future<void> clearAll() async {
     await _prefs.remove(_keyTransactions);

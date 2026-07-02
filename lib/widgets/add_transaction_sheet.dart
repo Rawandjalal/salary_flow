@@ -18,32 +18,79 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
   final _titleController = TextEditingController();
   final _amountController = TextEditingController();
   final _descriptionController = TextEditingController();
+  final _contactController = TextEditingController();
 
   bool _isIncome = false;
+  String _selectedScope = 'personal'; // Default to personal
   String _selectedCurrency = 'USD'; // Parallel currency selection
   String _selectedCategory = 'Food';
+  String _selectedPaymentMethod = 'Cash';
   DateTime _selectedDate = DateTime.now();
 
-  final List<String> _expenseCategories = [
+  final List<String> _personalExpenseCategories = [
     'Food',
     'Transport',
     'Rent',
     'Entertainment',
     'Shopping',
     'Utilities',
+    'Medical',
+    'Education',
+    'Gift',
     'Other'
   ];
 
-  final List<String> _incomeCategories = [
+  final List<String> _personalIncomeCategories = [
     'Salary',
+    'Freelance/Side Hustle',
+    'Investments',
+    'Gift',
     'Other'
   ];
+
+  final List<String> _businessExpenseCategories = [
+    'Inventory/Stock',
+    'Rent/Office',
+    'Marketing/Ads',
+    'Salaries/Wages',
+    'Software/Tools',
+    'Logistics/Shipping',
+    'Taxes/Fees',
+    'Office Supplies',
+    'Utilities',
+    'Other'
+  ];
+
+  final List<String> _businessIncomeCategories = [
+    'Sales/Revenue',
+    'Service/Consulting',
+    'Investments',
+    'Capital Deposit',
+    'Refund/Return',
+    'Other'
+  ];
+
+  List<String> get _currentCategories {
+    if (_selectedScope == 'personal') {
+      return _isIncome ? _personalIncomeCategories : _personalExpenseCategories;
+    } else {
+      return _isIncome ? _businessIncomeCategories : _businessExpenseCategories;
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // Default selected category dynamically based on active lists
+    _selectedCategory = _currentCategories.first;
+  }
 
   @override
   void dispose() {
     _titleController.dispose();
     _amountController.dispose();
     _descriptionController.dispose();
+    _contactController.dispose();
     super.dispose();
   }
 
@@ -61,7 +108,10 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
       category: _selectedCategory,
       date: _selectedDate,
       description: _descriptionController.text.trim(),
-      currency: _selectedCurrency, // Multi-currency support
+      currency: _selectedCurrency,
+      scope: _selectedScope,
+      paymentMethod: _selectedPaymentMethod,
+      contact: _contactController.text.trim(),
     );
 
     widget.onAdd(newTx);
@@ -97,10 +147,65 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
     }
   }
 
+  String _getCategoryDisplayName(String category, AppState appState) {
+    switch (category) {
+      case 'Food':
+        return appState.t('food');
+      case 'Transport':
+        return appState.t('transport');
+      case 'Rent':
+        return appState.t('rent');
+      case 'Entertainment':
+        return appState.t('entertainment');
+      case 'Shopping':
+        return appState.t('shopping');
+      case 'Utilities':
+        return appState.t('utilities');
+      case 'Salary':
+        return appState.t('salary');
+      case 'Medical':
+        return appState.t('medical');
+      case 'Education':
+        return appState.t('education');
+      case 'Gift':
+        return appState.t('gift');
+      case 'Freelance/Side Hustle':
+        return appState.t('freelance');
+      case 'Investments':
+        return appState.t('investments');
+      case 'Inventory/Stock':
+        return appState.t('inventory');
+      case 'Rent/Office':
+        return appState.t('rent');
+      case 'Marketing/Ads':
+        return appState.t('marketing');
+      case 'Salaries/Wages':
+        return appState.t('salaries');
+      case 'Software/Tools':
+        return appState.t('software');
+      case 'Logistics/Shipping':
+        return appState.t('logistics');
+      case 'Taxes/Fees':
+        return appState.t('taxes');
+      case 'Office Supplies':
+        return appState.t('office_supplies');
+      case 'Sales/Revenue':
+        return appState.t('sales_revenue');
+      case 'Service/Consulting':
+        return appState.t('service_consulting');
+      case 'Capital Deposit':
+        return appState.t('capital');
+      case 'Refund/Return':
+        return appState.t('refund');
+      default:
+        return appState.t('other');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final appState = Provider.of<AppState>(context);
-    final categories = _isIncome ? _incomeCategories : _expenseCategories;
+    final categories = _currentCategories;
     final displaySymbol = _selectedCurrency == 'USD' ? '\$' : 'د.ع';
 
     return Container(
@@ -140,6 +245,80 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
                 ],
               ),
               const SizedBox(height: 16),
+
+              // Segmented Scope Selector (Personal vs Business)
+              Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _selectedScope = 'personal';
+                          _selectedCategory = _currentCategories.first;
+                        });
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        decoration: BoxDecoration(
+                          color: _selectedScope == 'personal'
+                              ? Colors.white.withOpacity(0.08)
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: _selectedScope == 'personal'
+                                ? Colors.white.withOpacity(0.12)
+                                : Colors.transparent,
+                          ),
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          appState.t('personal'),
+                          style: TextStyle(
+                            color: _selectedScope == 'personal' ? Colors.white : Colors.white.withOpacity(0.4),
+                            fontWeight: FontWeight.w700,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _selectedScope = 'business';
+                          _selectedCategory = _currentCategories.first;
+                        });
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        decoration: BoxDecoration(
+                          color: _selectedScope == 'business'
+                              ? const Color(0xFF10B981).withOpacity(0.12)
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: _selectedScope == 'business'
+                                ? const Color(0xFF10B981).withOpacity(0.25)
+                                : Colors.transparent,
+                          ),
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          appState.t('business'),
+                          style: TextStyle(
+                            color: _selectedScope == 'business' ? const Color(0xFF10B981) : Colors.white.withOpacity(0.4),
+                            fontWeight: FontWeight.w700,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
 
               // Segmented Currency Selector (USD vs IQD)
               Row(
@@ -221,7 +400,7 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
 
               // Segmented Type Selector (Expense vs Income)
               Row(
@@ -231,7 +410,7 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
                       onTap: () {
                         setState(() {
                           _isIncome = false;
-                          _selectedCategory = 'Food';
+                          _selectedCategory = _currentCategories.first;
                         });
                       },
                       child: Container(
@@ -265,7 +444,7 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
                       onTap: () {
                         setState(() {
                           _isIncome = true;
-                          _selectedCategory = 'Salary';
+                          _selectedCategory = _currentCategories.first;
                         });
                       },
                       child: Container(
@@ -300,6 +479,7 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
               // Title Input
               TextFormField(
                 controller: _titleController,
+                textInputAction: TextInputAction.next,
                 style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
                 decoration: InputDecoration(
                   labelText: appState.t('title'),
@@ -321,10 +501,11 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
               ),
               const SizedBox(height: 14),
 
-              // Amount Input
+              // Amount Input (Explicitly Manual Price Selection)
               TextFormField(
                 controller: _amountController,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                textInputAction: TextInputAction.next,
                 style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
                 decoration: InputDecoration(
                   labelText: '${appState.t('amount')} ($displaySymbol)',
@@ -350,30 +531,7 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
               ),
               const SizedBox(height: 14),
 
-              // Description (Why) Input
-              TextFormField(
-                controller: _descriptionController,
-                maxLines: 2,
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
-                decoration: InputDecoration(
-                  labelText: appState.t('reason'),
-                  labelStyle: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 13),
-                  prefixIcon: Icon(Icons.description_rounded, color: Colors.white.withOpacity(0.4)),
-                  filled: true,
-                  fillColor: Colors.white.withOpacity(0.04),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: BorderSide.none,
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: BorderSide(color: Colors.white.withOpacity(0.1), width: 1.5),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 14),
-
-              // Category & Date Selection
+              // Dynamic Category & Date Selection Row
               Row(
                 children: [
                   Expanded(
@@ -394,23 +552,7 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
                       items: categories.map((cat) {
                         return DropdownMenuItem(
                           value: cat,
-                          child: Text(
-                            cat == 'Salary'
-                                ? appState.t('salary')
-                                : cat == 'Food'
-                                    ? appState.t('food')
-                                    : cat == 'Transport'
-                                        ? appState.t('transport')
-                                        : cat == 'Rent'
-                                            ? appState.t('rent')
-                                            : cat == 'Entertainment'
-                                                ? appState.t('entertainment')
-                                                : cat == 'Shopping'
-                                                    ? appState.t('shopping')
-                                                    : cat == 'Utilities'
-                                                        ? appState.t('utilities')
-                                                        : appState.t('other'),
-                          ),
+                          child: Text(_getCategoryDisplayName(cat, appState)),
                         );
                       }).toList(),
                       onChanged: (val) {
@@ -434,7 +576,7 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
                         ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
+                           children: [
                             Text(
                               DateFormat('MMM dd, yyyy').format(_selectedDate),
                               style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13),
@@ -446,6 +588,87 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
                     ),
                   ),
                 ],
+              ),
+              const SizedBox(height: 14),
+
+              // Payment Method & Contact Info Selection Row (Advanced fields)
+              Row(
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      value: _selectedPaymentMethod,
+                      dropdownColor: const Color(0xFF161B2E),
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                      decoration: InputDecoration(
+                        labelText: appState.t('payment_method'),
+                        labelStyle: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 13),
+                        filled: true,
+                        fillColor: Colors.white.withOpacity(0.04),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                      items: ['Cash', 'Card', 'Transfer', 'Debt'].map((method) {
+                        String name = method;
+                        if (method == 'Cash') name = appState.t('cash');
+                        if (method == 'Card') name = appState.t('card');
+                        if (method == 'Transfer') name = appState.t('transfer');
+                        if (method == 'Debt') name = appState.t('debt');
+                        return DropdownMenuItem(value: method, child: Text(name));
+                      }).toList(),
+                      onChanged: (val) {
+                        if (val != null) {
+                          setState(() {
+                            _selectedPaymentMethod = val;
+                          });
+                        }
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextFormField(
+                      controller: _contactController,
+                      textInputAction: TextInputAction.next,
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                      decoration: InputDecoration(
+                        labelText: appState.t('contact'),
+                        labelStyle: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 13),
+                        filled: true,
+                        fillColor: Colors.white.withOpacity(0.04),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+
+              // Description (Why) Input
+              TextFormField(
+                controller: _descriptionController,
+                maxLines: 2,
+                textInputAction: TextInputAction.done,
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
+                decoration: InputDecoration(
+                  labelText: appState.t('reason'),
+                  labelStyle: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 13),
+                  prefixIcon: Icon(Icons.description_rounded, color: Colors.white.withOpacity(0.4)),
+                  filled: true,
+                  fillColor: Colors.white.withOpacity(0.04),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide.none,
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide(color: Colors.white.withOpacity(0.1), width: 1.5),
+                  ),
+                ),
               ),
               const SizedBox(height: 28),
 

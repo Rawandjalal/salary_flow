@@ -19,17 +19,33 @@ class _ExcelBuilderPageState extends State<ExcelBuilderPage> {
 
   final List<String> _categories = [
     'All',
+    // Personal
     'Food',
     'Transport',
     'Rent',
     'Entertainment',
     'Shopping',
     'Utilities',
-    'Salary',
+    'Medical',
+    'Education',
+    'Gift',
+    // Business
+    'Inventory/Stock',
+    'Rent/Office',
+    'Marketing/Ads',
+    'Salaries/Wages',
+    'Software/Tools',
+    'Logistics/Shipping',
+    'Taxes/Fees',
+    'Office Supplies',
+    'Sales/Revenue',
+    'Service/Consulting',
+    'Capital Deposit',
+    'Refund/Return',
     'Other'
   ];
 
-  // Selected Columns Map
+  // Selected Columns Map (includes advanced fields by default)
   final Map<String, bool> _columns = {
     'Date': true,
     'Title': true,
@@ -37,7 +53,10 @@ class _ExcelBuilderPageState extends State<ExcelBuilderPage> {
     'Category': true,
     'Type': true,
     'Amount': true,
-    'Currency': true, // Selectable Currency column
+    'Currency': true,
+    'Scope': true,
+    'Payment Method': true,
+    'Contact': true,
     'ID': false,
   };
 
@@ -108,6 +127,40 @@ class _ExcelBuilderPageState extends State<ExcelBuilderPage> {
         return appState.t('utilities');
       case 'Salary':
         return appState.t('salary');
+      case 'Medical':
+        return appState.t('medical');
+      case 'Education':
+        return appState.t('education');
+      case 'Gift':
+        return appState.t('gift');
+      case 'Freelance/Side Hustle':
+        return appState.t('freelance');
+      case 'Investments':
+        return appState.t('investments');
+      case 'Inventory/Stock':
+        return appState.t('inventory');
+      case 'Rent/Office':
+        return appState.isRtl ? 'کرێ/پسوولە' : 'Rent / Office';
+      case 'Marketing/Ads':
+        return appState.t('marketing');
+      case 'Salaries/Wages':
+        return appState.t('salaries');
+      case 'Software/Tools':
+        return appState.t('software');
+      case 'Logistics/Shipping':
+        return appState.t('logistics');
+      case 'Taxes/Fees':
+        return appState.t('taxes');
+      case 'Office Supplies':
+        return appState.t('office_supplies');
+      case 'Sales/Revenue':
+        return appState.t('sales_revenue');
+      case 'Service/Consulting':
+        return appState.t('service_consulting');
+      case 'Capital Deposit':
+        return appState.t('capital');
+      case 'Refund/Return':
+        return appState.t('refund');
       default:
         return appState.t('other');
     }
@@ -164,9 +217,12 @@ class _ExcelBuilderPageState extends State<ExcelBuilderPage> {
                     if (key == 'Type') displayName = appState.t('expense') + ' / ' + appState.t('income');
                     if (key == 'Date') displayName = appState.t('date');
                     if (key == 'Currency') displayName = appState.t('currency');
+                    if (key == 'Scope') displayName = appState.t('scope');
+                    if (key == 'Payment Method') displayName = appState.t('payment_method');
+                    if (key == 'Contact') displayName = appState.t('contact');
 
                     return CheckboxListTile(
-                      title: Text(displayName, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                      title: Text(displayName, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13.5)),
                       value: _columns[key],
                       activeColor: const Color(0xFF10B981),
                       checkColor: Colors.white,

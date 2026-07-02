@@ -9,6 +9,9 @@ import 'pages/transactions_page.dart';
 import 'pages/analysis_page.dart';
 import 'pages/settings_page.dart';
 
+import 'pages/ai_studio_page.dart';
+import 'widgets/add_transaction_sheet.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final storageService = await StorageService.init();
@@ -25,8 +28,6 @@ class SalaryFlowApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final appState = Provider.of<AppState>(context, listen: false);
-
     return MaterialApp(
       title: 'SalaryFlow',
       debugShowCheckedModeBanner: false,
@@ -65,8 +66,10 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
         case 1:
           return 'تۆمارەکان';
         case 2:
-          return 'شیکاری';
+          return 'ژیری دەستکرد';
         case 3:
+          return 'شیکاری';
+        case 4:
           return 'ڕێکخستنەکان';
       }
     } else {
@@ -76,12 +79,28 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
         case 1:
           return 'History';
         case 2:
-          return 'Analysis';
+          return 'AI Studio';
         case 3:
+          return 'Analysis';
+        case 4:
           return 'Settings';
       }
     }
     return '';
+  }
+
+  void _showAddTransaction(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        final appState = Provider.of<AppState>(context, listen: false);
+        return AddTransactionSheet(
+          onAdd: (tx) => appState.addTransaction(tx),
+        );
+      },
+    );
   }
 
   @override
@@ -98,17 +117,31 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
         },
       ),
       const TransactionsPage(),
+      const AiStudioPage(),
       const AnalysisPage(),
       const SettingsPage(),
     ];
 
-    // Directionality dynamically toggles TextDirection at layout root
+    // GestureDetector handles global keyboard dismissal when tapping background
     return Directionality(
       textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
-      child: Scaffold(
-        extendBody: true,
-        body: pages[_currentIndex],
-        bottomNavigationBar: _buildFloatingNavBar(context, isRtl),
+      child: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: Scaffold(
+          extendBody: true,
+          body: pages[_currentIndex],
+          bottomNavigationBar: _buildFloatingNavBar(context, isRtl),
+          floatingActionButton: Padding(
+            padding: const EdgeInsets.only(bottom: 76.0), // push above the floating navbar
+            child: FloatingActionButton(
+              onPressed: () => _showAddTransaction(context),
+              backgroundColor: const Color(0xFF10B981),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+              child: const Icon(Icons.add_rounded, size: 28),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -116,7 +149,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
   Widget _buildFloatingNavBar(BuildContext context, bool isRtl) {
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(24),
           child: BackdropFilter(
@@ -143,8 +176,9 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                 children: [
                   _buildNavItem(0, Icons.grid_view_rounded, _getNavLabel(0, isRtl)),
                   _buildNavItem(1, Icons.receipt_long_rounded, _getNavLabel(1, isRtl)),
-                  _buildNavItem(2, Icons.analytics_rounded, _getNavLabel(2, isRtl)),
-                  _buildNavItem(3, Icons.settings_rounded, _getNavLabel(3, isRtl)),
+                  _buildNavItem(2, Icons.auto_awesome_rounded, _getNavLabel(2, isRtl)),
+                  _buildNavItem(3, Icons.analytics_rounded, _getNavLabel(3, isRtl)),
+                  _buildNavItem(4, Icons.settings_rounded, _getNavLabel(4, isRtl)),
                 ],
               ),
             ),

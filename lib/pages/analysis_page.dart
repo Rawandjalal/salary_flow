@@ -26,6 +26,8 @@ class _AnalysisPageState extends State<AnalysisPage> {
         return Colors.blueAccent;
       case 'Rent':
         return Colors.purpleAccent;
+      case 'Rent/Office':
+        return Colors.cyan;
       case 'Entertainment':
         return Colors.pinkAccent;
       case 'Shopping':
@@ -33,7 +35,38 @@ class _AnalysisPageState extends State<AnalysisPage> {
       case 'Utilities':
         return Colors.yellowAccent;
       case 'Salary':
+      case 'Sales/Revenue':
         return Colors.greenAccent;
+      case 'Medical':
+        return Colors.redAccent;
+      case 'Education':
+        return Colors.amberAccent;
+      case 'Gift':
+        return Colors.pink;
+      case 'Freelance/Side Hustle':
+        return Colors.indigoAccent;
+      case 'Investments':
+        return Colors.lightGreenAccent;
+      case 'Inventory/Stock':
+        return Colors.brown;
+      case 'Marketing/Ads':
+        return Colors.deepOrangeAccent;
+      case 'Salaries/Wages':
+        return Colors.teal;
+      case 'Software/Tools':
+        return Colors.blueGrey;
+      case 'Logistics/Shipping':
+        return Colors.amber;
+      case 'Taxes/Fees':
+        return Colors.red;
+      case 'Office Supplies':
+        return Colors.grey;
+      case 'Service/Consulting':
+        return Colors.purple;
+      case 'Capital Deposit':
+        return Colors.indigo;
+      case 'Refund/Return':
+        return Colors.orange;
       default:
         return Colors.grey;
     }
@@ -56,6 +89,40 @@ class _AnalysisPageState extends State<AnalysisPage> {
         return appState.t('utilities');
       case 'Salary':
         return appState.t('salary');
+      case 'Medical':
+        return appState.t('medical');
+      case 'Education':
+        return appState.t('education');
+      case 'Gift':
+        return appState.t('gift');
+      case 'Freelance/Side Hustle':
+        return appState.t('freelance');
+      case 'Investments':
+        return appState.t('investments');
+      case 'Inventory/Stock':
+        return appState.t('inventory');
+      case 'Rent/Office':
+        return appState.isRtl ? 'کرێ/پسوولە' : 'Rent / Office';
+      case 'Marketing/Ads':
+        return appState.t('marketing');
+      case 'Salaries/Wages':
+        return appState.t('salaries');
+      case 'Software/Tools':
+        return appState.t('software');
+      case 'Logistics/Shipping':
+        return appState.t('logistics');
+      case 'Taxes/Fees':
+        return appState.t('taxes');
+      case 'Office Supplies':
+        return appState.t('office_supplies');
+      case 'Sales/Revenue':
+        return appState.t('sales_revenue');
+      case 'Service/Consulting':
+        return appState.t('service_consulting');
+      case 'Capital Deposit':
+        return appState.t('capital');
+      case 'Refund/Return':
+        return appState.t('refund');
       default:
         return appState.t('other');
     }
@@ -132,10 +199,10 @@ class _AnalysisPageState extends State<AnalysisPage> {
       decimalDigits: activeDecimals,
     );
 
-    // Resolve Breakdown Map
+    // Resolve Breakdown Map (reacts to appState scope filter automatically)
     final breakdown = appState.getCategoryExpensesBreakdown(_activeCurrency);
 
-    // Resolve Cash Flow metrics
+    // Resolve Cash Flow metrics (react to appState scope filter automatically)
     final income = isUsd ? appState.totalMonthlyIncomeUSD : appState.totalMonthlyIncomeIQD;
     final expense = isUsd ? appState.totalMonthlyExpensesUSD : appState.totalMonthlyExpensesIQD;
     final netSavings = isUsd ? appState.monthlySavingsRealizedUSD : appState.monthlySavingsRealizedIQD;
@@ -152,7 +219,7 @@ class _AnalysisPageState extends State<AnalysisPage> {
       healthFeedback = appState.t('health_fair');
     }
 
-    // Line Chart Spots
+    // Line Chart Spots (acts on filtered transactions list)
     final daysInCurrentMonth = appState.daysInMonth;
     final trendSpots = _getSpendingTrendSpots(appState.transactions, daysInCurrentMonth, _activeCurrency);
 
@@ -189,6 +256,24 @@ class _AnalysisPageState extends State<AnalysisPage> {
                 ),
               ),
               const SizedBox(height: 18),
+
+              // Global Scope filter row on Analysis Page
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.02),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.white.withOpacity(0.04)),
+                ),
+                child: Row(
+                  children: [
+                    _buildScopeButton(appState, 'personal', appState.t('personal')),
+                    _buildScopeButton(appState, 'all', appState.t('all_scopes')),
+                    _buildScopeButton(appState, 'business', appState.t('business')),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
 
               // Wallet Analysis Toggle Buttons
               Container(
@@ -584,6 +669,45 @@ class _AnalysisPageState extends State<AnalysisPage> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildScopeButton(AppState appState, String scope, String label) {
+    final isSelected = appState.selectedScope == scope;
+    final isBusiness = scope == 'business';
+    Color activeColor = Colors.white.withOpacity(0.08);
+    if (isSelected) {
+      if (isBusiness) activeColor = const Color(0xFF10B981).withOpacity(0.12);
+    }
+
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => appState.setSelectedScope(scope),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            color: isSelected ? activeColor : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isSelected 
+                  ? (isBusiness ? const Color(0xFF10B981).withOpacity(0.25) : Colors.white.withOpacity(0.12))
+                  : Colors.transparent,
+            ),
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            label,
+            style: TextStyle(
+              color: isSelected 
+                  ? (isBusiness ? const Color(0xFF10B981) : Colors.white) 
+                  : Colors.white.withOpacity(0.4),
+              fontWeight: FontWeight.bold,
+              fontSize: 12,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

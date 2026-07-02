@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../state/app_state.dart';
+import '../models/salary_config.dart';
 import '../widgets/glass_card.dart';
 
 class SettingsPage extends StatefulWidget {
@@ -15,11 +16,13 @@ class _SettingsPageState extends State<SettingsPage> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _salaryController;
   late TextEditingController _savingsController;
+  late TextEditingController _dailyBudgetController;
 
   final _expenseNameController = TextEditingController();
   final _expenseAmountController = TextEditingController();
 
-  String _selectedSettingsCurrency = 'USD'; // 'USD' or 'IQD' configuration active
+  String _selectedSettingsCurrency = 'USD'; // 'USD' or 'IQD'
+  String _selectedSettingsScope = 'personal'; // 'personal' or 'business'
 
   @override
   void initState() {
@@ -27,24 +30,43 @@ class _SettingsPageState extends State<SettingsPage> {
     final appState = Provider.of<AppState>(context, listen: false);
     _salaryController = TextEditingController(text: appState.salaryConfig.monthlySalaryUSD.toStringAsFixed(2));
     _savingsController = TextEditingController(text: appState.salaryConfig.savingsGoalUSD.toStringAsFixed(2));
+    _dailyBudgetController = TextEditingController(text: appState.salaryConfig.personalDailyBudgetUSD.toStringAsFixed(2));
   }
 
   @override
   void dispose() {
     _salaryController.dispose();
     _savingsController.dispose();
+    _dailyBudgetController.dispose();
     _expenseNameController.dispose();
     _expenseAmountController.dispose();
     super.dispose();
   }
 
   void _updateControllers(AppState appState) {
-    if (_selectedSettingsCurrency == 'USD') {
-      _salaryController.text = appState.salaryConfig.monthlySalaryUSD.toStringAsFixed(2);
-      _savingsController.text = appState.salaryConfig.savingsGoalUSD.toStringAsFixed(2);
+    final isUsd = _selectedSettingsCurrency == 'USD';
+    final isPersonal = _selectedSettingsScope == 'personal';
+
+    if (isUsd) {
+      if (isPersonal) {
+        _salaryController.text = appState.salaryConfig.monthlySalaryUSD.toStringAsFixed(2);
+        _savingsController.text = appState.salaryConfig.savingsGoalUSD.toStringAsFixed(2);
+        _dailyBudgetController.text = appState.salaryConfig.personalDailyBudgetUSD.toStringAsFixed(2);
+      } else {
+        _salaryController.text = appState.salaryConfig.businessIncomeUSD.toStringAsFixed(2);
+        _savingsController.text = appState.salaryConfig.businessSavingsGoalUSD.toStringAsFixed(2);
+        _dailyBudgetController.text = appState.salaryConfig.businessDailyBudgetUSD.toStringAsFixed(2);
+      }
     } else {
-      _salaryController.text = appState.salaryConfig.monthlySalaryIQD.toStringAsFixed(0);
-      _savingsController.text = appState.salaryConfig.savingsGoalIQD.toStringAsFixed(0);
+      if (isPersonal) {
+        _salaryController.text = appState.salaryConfig.monthlySalaryIQD.toStringAsFixed(0);
+        _savingsController.text = appState.salaryConfig.savingsGoalIQD.toStringAsFixed(0);
+        _dailyBudgetController.text = appState.salaryConfig.personalDailyBudgetIQD.toStringAsFixed(0);
+      } else {
+        _salaryController.text = appState.salaryConfig.businessIncomeIQD.toStringAsFixed(0);
+        _savingsController.text = appState.salaryConfig.businessSavingsGoalIQD.toStringAsFixed(0);
+        _dailyBudgetController.text = appState.salaryConfig.businessDailyBudgetIQD.toStringAsFixed(0);
+      }
     }
   }
 
@@ -53,16 +75,41 @@ class _SettingsPageState extends State<SettingsPage> {
 
     final salary = double.tryParse(_salaryController.text) ?? 0.0;
     final savings = double.tryParse(_savingsController.text) ?? 0.0;
+    final dailyBudget = double.tryParse(_dailyBudgetController.text) ?? 0.0;
 
-    final newConfig = _selectedSettingsCurrency == 'USD'
-        ? appState.salaryConfig.copyWith(
-            monthlySalaryUSD: salary,
-            savingsGoalUSD: savings,
-          )
-        : appState.salaryConfig.copyWith(
-            monthlySalaryIQD: salary,
-            savingsGoalIQD: savings,
-          );
+    final isUsd = _selectedSettingsCurrency == 'USD';
+    final isPersonal = _selectedSettingsScope == 'personal';
+
+    SalaryConfig newConfig;
+    if (isUsd) {
+      if (isPersonal) {
+        newConfig = appState.salaryConfig.copyWith(
+          monthlySalaryUSD: salary,
+          savingsGoalUSD: savings,
+          personalDailyBudgetUSD: dailyBudget,
+        );
+      } else {
+        newConfig = appState.salaryConfig.copyWith(
+          businessIncomeUSD: salary,
+          businessSavingsGoalUSD: savings,
+          businessDailyBudgetUSD: dailyBudget,
+        );
+      }
+    } else {
+      if (isPersonal) {
+        newConfig = appState.salaryConfig.copyWith(
+          monthlySalaryIQD: salary,
+          savingsGoalIQD: savings,
+          personalDailyBudgetIQD: dailyBudget,
+        );
+      } else {
+        newConfig = appState.salaryConfig.copyWith(
+          businessIncomeIQD: salary,
+          businessSavingsGoalIQD: savings,
+          businessDailyBudgetIQD: dailyBudget,
+        );
+      }
+    }
 
     appState.updateSalaryConfig(newConfig);
 
@@ -126,16 +173,29 @@ class _SettingsPageState extends State<SettingsPage> {
 
                 if (name.isNotEmpty && amount > 0) {
                   final isUsd = _selectedSettingsCurrency == 'USD';
-                  final Map<String, double> updatedExpenses = isUsd
-                      ? Map.from(appState.salaryConfig.fixedExpensesUSD)
-                      : Map.from(appState.salaryConfig.fixedExpensesIQD);
-                  updatedExpenses[name] = amount;
+                  final isPersonal = _selectedSettingsScope == 'personal';
 
-                  final newConfig = isUsd
-                      ? appState.salaryConfig.copyWith(fixedExpensesUSD: updatedExpenses)
-                      : appState.salaryConfig.copyWith(fixedExpensesIQD: updatedExpenses);
-                  
-                  appState.updateSalaryConfig(newConfig);
+                  if (isPersonal) {
+                    final Map<String, double> updatedExpenses = isUsd
+                        ? Map.from(appState.salaryConfig.fixedExpensesUSD)
+                        : Map.from(appState.salaryConfig.fixedExpensesIQD);
+                    updatedExpenses[name] = amount;
+
+                    final newConfig = isUsd
+                        ? appState.salaryConfig.copyWith(fixedExpensesUSD: updatedExpenses)
+                        : appState.salaryConfig.copyWith(fixedExpensesIQD: updatedExpenses);
+                    appState.updateSalaryConfig(newConfig);
+                  } else {
+                    final Map<String, double> updatedExpenses = isUsd
+                        ? Map.from(appState.salaryConfig.businessFixedExpensesUSD)
+                        : Map.from(appState.salaryConfig.businessFixedExpensesIQD);
+                    updatedExpenses[name] = amount;
+
+                    final newConfig = isUsd
+                        ? appState.salaryConfig.copyWith(businessFixedExpensesUSD: updatedExpenses)
+                        : appState.salaryConfig.copyWith(businessFixedExpensesIQD: updatedExpenses);
+                    appState.updateSalaryConfig(newConfig);
+                  }
 
                   _expenseNameController.clear();
                   _expenseAmountController.clear();
@@ -153,16 +213,29 @@ class _SettingsPageState extends State<SettingsPage> {
 
   void _removeFixedExpense(BuildContext context, AppState appState, String key) {
     final isUsd = _selectedSettingsCurrency == 'USD';
-    final Map<String, double> updatedExpenses = isUsd
-        ? Map.from(appState.salaryConfig.fixedExpensesUSD)
-        : Map.from(appState.salaryConfig.fixedExpensesIQD);
-    updatedExpenses.remove(key);
+    final isPersonal = _selectedSettingsScope == 'personal';
 
-    final newConfig = isUsd
-        ? appState.salaryConfig.copyWith(fixedExpensesUSD: updatedExpenses)
-        : appState.salaryConfig.copyWith(fixedExpensesIQD: updatedExpenses);
-    
-    appState.updateSalaryConfig(newConfig);
+    if (isPersonal) {
+      final Map<String, double> updatedExpenses = isUsd
+          ? Map.from(appState.salaryConfig.fixedExpensesUSD)
+          : Map.from(appState.salaryConfig.fixedExpensesIQD);
+      updatedExpenses.remove(key);
+
+      final newConfig = isUsd
+          ? appState.salaryConfig.copyWith(fixedExpensesUSD: updatedExpenses)
+          : appState.salaryConfig.copyWith(fixedExpensesIQD: updatedExpenses);
+      appState.updateSalaryConfig(newConfig);
+    } else {
+      final Map<String, double> updatedExpenses = isUsd
+          ? Map.from(appState.salaryConfig.businessFixedExpensesUSD)
+          : Map.from(appState.salaryConfig.businessFixedExpensesIQD);
+      updatedExpenses.remove(key);
+
+      final newConfig = isUsd
+          ? appState.salaryConfig.copyWith(businessFixedExpensesUSD: updatedExpenses)
+          : appState.salaryConfig.copyWith(businessFixedExpensesIQD: updatedExpenses);
+      appState.updateSalaryConfig(newConfig);
+    }
   }
 
   void _resetApp(BuildContext context, AppState appState) {
@@ -187,6 +260,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 setState(() {
                   _salaryController.text = '0.00';
                   _savingsController.text = '0.00';
+                  _dailyBudgetController.text = '0.00';
                 });
                 Navigator.of(context).pop();
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -210,6 +284,7 @@ class _SettingsPageState extends State<SettingsPage> {
     final appState = context.watch<AppState>();
 
     final isUsd = _selectedSettingsCurrency == 'USD';
+    final isPersonal = _selectedSettingsScope == 'personal';
     final activeSymbol = isUsd ? '\$' : 'د.ع';
     final activeDecimals = isUsd ? 2 : 0;
 
@@ -218,9 +293,10 @@ class _SettingsPageState extends State<SettingsPage> {
       decimalDigits: activeDecimals,
     );
 
-    final fixedExpensesList = isUsd
-        ? appState.salaryConfig.fixedExpensesUSD
-        : appState.salaryConfig.fixedExpensesIQD;
+    // Dynamic configuration fields mapping
+    final fixedExpensesList = isPersonal
+        ? (isUsd ? appState.salaryConfig.fixedExpensesUSD : appState.salaryConfig.fixedExpensesIQD)
+        : (isUsd ? appState.salaryConfig.businessFixedExpensesUSD : appState.salaryConfig.businessFixedExpensesIQD);
 
     return Scaffold(
       body: Container(
@@ -291,9 +367,9 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
                 const SizedBox(height: 24),
 
-                // Premium Multi-Currency Wallet Toggle
+                // Budget Mode Configuration
                 Text(
-                  appState.isRtl ? 'ڕێکخستنی دەفتەری پارە' : 'WALLET CONFIGURATION TARGET',
+                  appState.t('budget_mode').toUpperCase(),
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
@@ -302,67 +378,176 @@ class _SettingsPageState extends State<SettingsPage> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.03),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.white.withOpacity(0.06)),
-                  ),
-                  child: Row(
+                GlassCard(
+                  child: Column(
                     children: [
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              _selectedSettingsCurrency = 'USD';
-                              _updateControllers(appState);
-                            });
-                          },
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 200),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            decoration: BoxDecoration(
-                              color: isUsd ? Colors.white.withOpacity(0.08) : Colors.transparent,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            alignment: Alignment.center,
-                            child: Text(
-                              appState.isRtl ? 'ڕێکخستنی دۆلار (\$)' : 'Configure USD (\$)',
-                              style: TextStyle(
-                                color: isUsd ? Colors.white : Colors.white.withOpacity(0.4),
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
+                      RadioListTile<bool>(
+                        title: Text(appState.t('auto_budget'), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13.5)),
+                        value: false,
+                        groupValue: appState.salaryConfig.useManualDailyBudget,
+                        activeColor: const Color(0xFF10B981),
+                        onChanged: (val) {
+                          if (val != null) {
+                            appState.updateSalaryConfig(appState.salaryConfig.copyWith(useManualDailyBudget: val));
+                          }
+                        },
+                      ),
+                      RadioListTile<bool>(
+                        title: Text(appState.t('manual_budget'), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13.5)),
+                        value: true,
+                        groupValue: appState.salaryConfig.useManualDailyBudget,
+                        activeColor: const Color(0xFF10B981),
+                        onChanged: (val) {
+                          if (val != null) {
+                            appState.updateSalaryConfig(appState.salaryConfig.copyWith(useManualDailyBudget: val));
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // Multi-Currency and Multi-Scope selectors
+                Text(
+                  appState.isRtl ? 'ڕێکخستنی دەفتەری ئامانج' : 'TARGET LEDGER CONFIGURATION',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white.withOpacity(0.4),
+                    letterSpacing: 1.5,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                GlassCard(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    children: [
+                      // Scope selector (Personal vs Business)
+                      Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.02),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.white.withOpacity(0.04)),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: () {
+                                  setState(() {
+                                    _selectedSettingsScope = 'personal';
+                                    _updateControllers(appState);
+                                  });
+                                },
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 200),
+                                  padding: const EdgeInsets.symmetric(vertical: 10),
+                                  decoration: BoxDecoration(
+                                    color: isPersonal ? Colors.white.withOpacity(0.08) : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: Text(
+                                    appState.t('configure_personal'),
+                                    style: TextStyle(
+                                      color: isPersonal ? Colors.white : Colors.white.withOpacity(0.4),
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ),
                               ),
                             ),
-                          ),
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: () {
+                                  setState(() {
+                                    _selectedSettingsScope = 'business';
+                                    _updateControllers(appState);
+                                  });
+                                },
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 200),
+                                  padding: const EdgeInsets.symmetric(vertical: 10),
+                                  decoration: BoxDecoration(
+                                    color: !isPersonal ? const Color(0xFF10B981).withOpacity(0.12) : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: Text(
+                                    appState.t('configure_business'),
+                                    style: TextStyle(
+                                      color: !isPersonal ? const Color(0xFF10B981) : Colors.white.withOpacity(0.4),
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              _selectedSettingsCurrency = 'IQD';
-                              _updateControllers(appState);
-                            });
-                          },
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 200),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            decoration: BoxDecoration(
-                              color: !isUsd ? Colors.white.withOpacity(0.08) : Colors.transparent,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            alignment: Alignment.center,
-                            child: Text(
-                              appState.isRtl ? 'ڕێکخستنی دینار (د.ع)' : 'Configure IQD (د.ع)',
-                              style: TextStyle(
-                                color: !isUsd ? Colors.white : Colors.white.withOpacity(0.4),
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
+                      const SizedBox(height: 12),
+                      // Currency selector (USD vs IQD)
+                      Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.02),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.white.withOpacity(0.04)),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: () {
+                                  setState(() {
+                                    _selectedSettingsCurrency = 'USD';
+                                    _updateControllers(appState);
+                                  });
+                                },
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 200),
+                                  padding: const EdgeInsets.symmetric(vertical: 10),
+                                  decoration: BoxDecoration(
+                                    color: isUsd ? Colors.white.withOpacity(0.08) : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: const Text(
+                                    'USD (\$)',
+                                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                                  ),
+                                ),
                               ),
                             ),
-                          ),
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: () {
+                                  setState(() {
+                                    _selectedSettingsCurrency = 'IQD';
+                                    _updateControllers(appState);
+                                  });
+                                },
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 200),
+                                  padding: const EdgeInsets.symmetric(vertical: 10),
+                                  decoration: BoxDecoration(
+                                    color: !isUsd ? Colors.white.withOpacity(0.08) : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: const Text(
+                                    'IQD (د.ع)',
+                                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
@@ -370,11 +555,9 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
                 const SizedBox(height: 20),
 
-                // Salary & Savings Goal Section
+                // Income & Goal Configuration Form
                 Text(
-                  isUsd
-                      ? (appState.isRtl ? 'داهات و پاشەکەوت (\$)' : 'SALARY & SAVINGS (USD)')
-                      : (appState.isRtl ? 'داهات و پاشەکەوت (د.ع)' : 'SALARY & SAVINGS (IQD)'),
+                  '${isPersonal ? appState.t('personal').toUpperCase() : appState.t('business').toUpperCase()} ${appState.isRtl ? 'ڕێکخستن' : 'BUDGET targets'} ($activeSymbol)',
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
@@ -387,13 +570,16 @@ class _SettingsPageState extends State<SettingsPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // Salary Field
+                      // Monthly Salary / Target Revenue Field
                       TextFormField(
                         controller: _salaryController,
                         keyboardType: TextInputType.number,
+                        textInputAction: TextInputAction.next,
                         style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
                         decoration: InputDecoration(
-                          labelText: '${appState.t('net_salary')} ($activeSymbol)',
+                          labelText: isPersonal 
+                              ? '${appState.t('net_salary')} ($activeSymbol)' 
+                              : '${appState.t('business_income_lbl')} ($activeSymbol)',
                           labelStyle: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 13),
                           prefixIcon: Icon(Icons.wallet_rounded, color: Colors.white.withOpacity(0.4)),
                           filled: true,
@@ -401,23 +587,23 @@ class _SettingsPageState extends State<SettingsPage> {
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
                         ),
                         validator: (val) {
-                          if (val == null || val.trim().isEmpty) {
-                            return appState.isRtl ? 'تکایە مووچە بنووسە' : 'Enter salary';
-                          }
-                          if (double.tryParse(val) == null) {
-                            return appState.isRtl ? 'تکایە ژمارە بنووسە' : 'Enter a number';
-                          }
+                          if (val == null || val.trim().isEmpty) return appState.isRtl ? 'تکایە بنووسە' : 'Enter amount';
+                          if (double.tryParse(val) == null) return appState.isRtl ? 'تکایە ژمارە بنووسە' : 'Enter a number';
                           return null;
                         },
                       ),
                       const SizedBox(height: 16),
-                      // Savings Goal Field
+
+                      // Savings Target / Profit Goal Field
                       TextFormField(
                         controller: _savingsController,
                         keyboardType: TextInputType.number,
+                        textInputAction: appState.salaryConfig.useManualDailyBudget ? TextInputAction.next : TextInputAction.done,
                         style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
                         decoration: InputDecoration(
-                          labelText: '${appState.t('savings_target')} ($activeSymbol)',
+                          labelText: isPersonal 
+                              ? '${appState.t('savings_target')} ($activeSymbol)'
+                              : '${appState.t('business_savings_lbl')} ($activeSymbol)',
                           labelStyle: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 13),
                           prefixIcon: Icon(Icons.savings_rounded, color: Colors.white.withOpacity(0.4)),
                           filled: true,
@@ -425,16 +611,39 @@ class _SettingsPageState extends State<SettingsPage> {
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
                         ),
                         validator: (val) {
-                          if (val == null || val.trim().isEmpty) {
-                            return appState.isRtl ? 'تکایە پاشەکەوت بنووسە' : 'Enter savings goal';
-                          }
-                          if (double.tryParse(val) == null) {
-                            return appState.isRtl ? 'تکایە ژمارە بنووسە' : 'Enter a number';
-                          }
+                          if (val == null || val.trim().isEmpty) return appState.isRtl ? 'تکایە بنووسە' : 'Enter amount';
+                          if (double.tryParse(val) == null) return appState.isRtl ? 'تکایە ژمارە بنووسە' : 'Enter a number';
                           return null;
                         },
                       ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 16),
+
+                      // Manual Daily Budget Field (Visible only if useManualDailyBudget is true)
+                      if (appState.salaryConfig.useManualDailyBudget) ...[
+                        TextFormField(
+                          controller: _dailyBudgetController,
+                          keyboardType: TextInputType.number,
+                          textInputAction: TextInputAction.done,
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                          decoration: InputDecoration(
+                            labelText: isPersonal 
+                                ? '${appState.t('personal_daily_budget')} ($activeSymbol)'
+                                : '${appState.t('business_daily_budget')} ($activeSymbol)',
+                            labelStyle: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 13),
+                            prefixIcon: Icon(Icons.calendar_today_rounded, color: Colors.white.withOpacity(0.4)),
+                            filled: true,
+                            fillColor: Colors.white.withOpacity(0.04),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                          ),
+                          validator: (val) {
+                            if (val == null || val.trim().isEmpty) return appState.isRtl ? 'تکایە بنووسە' : 'Enter amount';
+                            if (double.tryParse(val) == null) return appState.isRtl ? 'تکایە ژمارە بنووسە' : 'Enter a number';
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+
                       ElevatedButton(
                         onPressed: () => _saveConfigs(context, appState),
                         style: ElevatedButton.styleFrom(
@@ -451,7 +660,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
                 const SizedBox(height: 24),
 
-                // Fixed Monthly Bills/Expenses (USD vs IQD)
+                // Fixed Monthly Bills/Expenses (Reacts to USD/IQD and Personal/Business)
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [

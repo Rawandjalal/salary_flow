@@ -10,20 +10,46 @@ class AppState extends ChangeNotifier {
   SalaryConfig _salaryConfig = SalaryConfig();
   bool _isLoading = true;
 
+  // Global Scope Filter: 'all', 'personal', 'business'
+  String _selectedScope = 'all';
+  String _geminiApiKey = '';
+
   AppState(this._storageService) {
     _loadFromStorage();
   }
 
   bool get isLoading => _isLoading;
-  List<Transaction> get transactions => _transactions;
+  String get geminiApiKey => _geminiApiKey;
+
+  void setGeminiApiKey(String key) {
+    _geminiApiKey = key;
+    _storageService.saveString('gemini_api_key', key);
+    notifyListeners();
+  }
+  
+  // Filtered transactions for UI usage
+  List<Transaction> get transactions => _transactions.where(_matchesScope).toList();
+  
+  // All transactions (raw) for backend or full reports
+  List<Transaction> get allTransactions => _transactions;
+
   SalaryConfig get salaryConfig => _salaryConfig;
+  String get selectedScope => _selectedScope;
 
   // Language Preference
   bool get isRtl => _salaryConfig.language == 'ku';
 
+  void setSelectedScope(String scope) {
+    if (_selectedScope != scope) {
+      _selectedScope = scope;
+      notifyListeners();
+    }
+  }
+
   void _loadFromStorage() {
     _transactions = _storageService.getTransactions();
     _salaryConfig = _storageService.getSalaryConfig();
+    _geminiApiKey = _storageService.getString('gemini_api_key') ?? '';
     _isLoading = false;
     notifyListeners();
   }
@@ -49,8 +75,16 @@ class AppState extends ChangeNotifier {
   Future<void> clearAllData() async {
     _transactions.clear();
     _salaryConfig = SalaryConfig();
+    _geminiApiKey = '';
     await _storageService.clearAll();
+    await _storageService.saveString('gemini_api_key', '');
     notifyListeners();
+  }
+
+  // Helper to match selected scope
+  bool _matchesScope(Transaction tx) {
+    if (_selectedScope == 'all') return true;
+    return tx.scope == _selectedScope;
   }
 
   // ----------------------------------------------------
@@ -80,42 +114,92 @@ class AppState extends ChangeNotifier {
   // PARALLEL LEDGERS / WALLETS METRICS (USD & IQD)
   // ----------------------------------------------------
 
-  // 1. Daily Allowance
+  // 1. Daily Allowance (checks manual setting or auto-calculates)
   double get dailyAllowanceUSD {
-    final disposable = _salaryConfig.netDisposableIncomeUSD;
-    if (disposable <= 0) return 0.0;
-    return disposable / daysInMonth;
+    if (_selectedScope == 'personal') {
+      if (_salaryConfig.useManualDailyBudget) {
+        return _salaryConfig.personalDailyBudgetUSD;
+      }
+      final disposable = _salaryConfig.netDisposableIncomeUSD;
+      return disposable <= 0 ? 0.0 : disposable / daysInMonth;
+    } else if (_selectedScope == 'business') {
+      if (_salaryConfig.useManualDailyBudget) {
+        return _salaryConfig.businessDailyBudgetUSD;
+      }
+      final disposable = _salaryConfig.netBusinessDisposableIncomeUSD;
+      return disposable <= 0 ? 0.0 : disposable / daysInMonth;
+    } else {
+      // Combined scope
+      double personalAllowance = 0.0;
+      double businessAllowance = 0.0;
+
+      if (_salaryConfig.useManualDailyBudget) {
+        personalAllowance = _salaryConfig.personalDailyBudgetUSD;
+        businessAllowance = _salaryConfig.businessDailyBudgetUSD;
+      } else {
+        final personalDisposable = _salaryConfig.netDisposableIncomeUSD;
+        final businessDisposable = _salaryConfig.netBusinessDisposableIncomeUSD;
+        personalAllowance = personalDisposable <= 0 ? 0.0 : personalDisposable / daysInMonth;
+        businessAllowance = businessDisposable <= 0 ? 0.0 : businessDisposable / daysInMonth;
+      }
+      return personalAllowance + businessAllowance;
+    }
   }
 
   double get dailyAllowanceIQD {
-    final disposable = _salaryConfig.netDisposableIncomeIQD;
-    if (disposable <= 0) return 0.0;
-    return disposable / daysInMonth;
+    if (_selectedScope == 'personal') {
+      if (_salaryConfig.useManualDailyBudget) {
+        return _salaryConfig.personalDailyBudgetIQD;
+      }
+      final disposable = _salaryConfig.netDisposableIncomeIQD;
+      return disposable <= 0 ? 0.0 : disposable / daysInMonth;
+    } else if (_selectedScope == 'business') {
+      if (_salaryConfig.useManualDailyBudget) {
+        return _salaryConfig.businessDailyBudgetIQD;
+      }
+      final disposable = _salaryConfig.netBusinessDisposableIncomeIQD;
+      return disposable <= 0 ? 0.0 : disposable / daysInMonth;
+    } else {
+      // Combined scope
+      double personalAllowance = 0.0;
+      double businessAllowance = 0.0;
+
+      if (_salaryConfig.useManualDailyBudget) {
+        personalAllowance = _salaryConfig.personalDailyBudgetIQD;
+        businessAllowance = _salaryConfig.businessDailyBudgetIQD;
+      } else {
+        final personalDisposable = _salaryConfig.netDisposableIncomeIQD;
+        final businessDisposable = _salaryConfig.netBusinessDisposableIncomeIQD;
+        personalAllowance = personalDisposable <= 0 ? 0.0 : personalDisposable / daysInMonth;
+        businessAllowance = businessDisposable <= 0 ? 0.0 : businessDisposable / daysInMonth;
+      }
+      return personalAllowance + businessAllowance;
+    }
   }
 
   // 2. Today's Expenses
   double get todaysExpensesUSD {
     return _transactions
-        .where((tx) => !tx.isIncome && tx.currency == 'USD' && _isToday(tx.date))
+        .where((tx) => !tx.isIncome && tx.currency == 'USD' && _isToday(tx.date) && _matchesScope(tx))
         .fold(0.0, (sum, tx) => sum + tx.amount);
   }
 
   double get todaysExpensesIQD {
     return _transactions
-        .where((tx) => !tx.isIncome && tx.currency == 'IQD' && _isToday(tx.date))
+        .where((tx) => !tx.isIncome && tx.currency == 'IQD' && _isToday(tx.date) && _matchesScope(tx))
         .fold(0.0, (sum, tx) => sum + tx.amount);
   }
 
   // 3. Today's Income
   double get todaysIncomeUSD {
     return _transactions
-        .where((tx) => tx.isIncome && tx.currency == 'USD' && _isToday(tx.date))
+        .where((tx) => tx.isIncome && tx.currency == 'USD' && _isToday(tx.date) && _matchesScope(tx))
         .fold(0.0, (sum, tx) => sum + tx.amount);
   }
 
   double get todaysIncomeIQD {
     return _transactions
-        .where((tx) => tx.isIncome && tx.currency == 'IQD' && _isToday(tx.date))
+        .where((tx) => tx.isIncome && tx.currency == 'IQD' && _isToday(tx.date) && _matchesScope(tx))
         .fold(0.0, (sum, tx) => sum + tx.amount);
   }
 
@@ -146,45 +230,69 @@ class AppState extends ChangeNotifier {
   // 6. Monthly Expenses So Far
   double get monthlyExpensesSoFarUSD {
     return _transactions
-        .where((tx) => !tx.isIncome && tx.currency == 'USD' && _isThisMonth(tx.date))
+        .where((tx) => !tx.isIncome && tx.currency == 'USD' && _isThisMonth(tx.date) && _matchesScope(tx))
         .fold(0.0, (sum, tx) => sum + tx.amount);
   }
 
   double get monthlyExpensesSoFarIQD {
     return _transactions
-        .where((tx) => !tx.isIncome && tx.currency == 'IQD' && _isThisMonth(tx.date))
+        .where((tx) => !tx.isIncome && tx.currency == 'IQD' && _isThisMonth(tx.date) && _matchesScope(tx))
         .fold(0.0, (sum, tx) => sum + tx.amount);
   }
 
   // 7. Monthly Additional Income
   double get monthlyAdditionalIncomeUSD {
     return _transactions
-        .where((tx) => tx.isIncome && tx.currency == 'USD' && _isThisMonth(tx.date))
+        .where((tx) => tx.isIncome && tx.currency == 'USD' && _isThisMonth(tx.date) && _matchesScope(tx))
         .fold(0.0, (sum, tx) => sum + tx.amount);
   }
 
   double get monthlyAdditionalIncomeIQD {
     return _transactions
-        .where((tx) => tx.isIncome && tx.currency == 'IQD' && _isThisMonth(tx.date))
+        .where((tx) => tx.isIncome && tx.currency == 'IQD' && _isThisMonth(tx.date) && _matchesScope(tx))
         .fold(0.0, (sum, tx) => sum + tx.amount);
   }
 
   // 8. Total Monthly Expenses (So Far + Fixed Bills)
   double get totalMonthlyExpensesUSD {
-    return monthlyExpensesSoFarUSD + _salaryConfig.totalFixedExpensesUSD;
+    if (_selectedScope == 'personal') {
+      return monthlyExpensesSoFarUSD + _salaryConfig.totalFixedExpensesUSD;
+    } else if (_selectedScope == 'business') {
+      return monthlyExpensesSoFarUSD + _salaryConfig.totalBusinessFixedExpensesUSD;
+    } else {
+      return monthlyExpensesSoFarUSD + _salaryConfig.totalFixedExpensesUSD + _salaryConfig.totalBusinessFixedExpensesUSD;
+    }
   }
 
   double get totalMonthlyExpensesIQD {
-    return monthlyExpensesSoFarIQD + _salaryConfig.totalFixedExpensesIQD;
+    if (_selectedScope == 'personal') {
+      return monthlyExpensesSoFarIQD + _salaryConfig.totalFixedExpensesIQD;
+    } else if (_selectedScope == 'business') {
+      return monthlyExpensesSoFarIQD + _salaryConfig.totalBusinessFixedExpensesIQD;
+    } else {
+      return monthlyExpensesSoFarIQD + _salaryConfig.totalFixedExpensesIQD + _salaryConfig.totalBusinessFixedExpensesIQD;
+    }
   }
 
-  // 9. Total Monthly Income (Salary + Additional Incomes)
+  // 9. Total Monthly Income (Salary/Base + Additional Incomes)
   double get totalMonthlyIncomeUSD {
-    return _salaryConfig.monthlySalaryUSD + monthlyAdditionalIncomeUSD;
+    if (_selectedScope == 'personal') {
+      return _salaryConfig.monthlySalaryUSD + monthlyAdditionalIncomeUSD;
+    } else if (_selectedScope == 'business') {
+      return _salaryConfig.businessIncomeUSD + monthlyAdditionalIncomeUSD;
+    } else {
+      return _salaryConfig.monthlySalaryUSD + _salaryConfig.businessIncomeUSD + monthlyAdditionalIncomeUSD;
+    }
   }
 
   double get totalMonthlyIncomeIQD {
-    return _salaryConfig.monthlySalaryIQD + monthlyAdditionalIncomeIQD;
+    if (_selectedScope == 'personal') {
+      return _salaryConfig.monthlySalaryIQD + monthlyAdditionalIncomeIQD;
+    } else if (_selectedScope == 'business') {
+      return _salaryConfig.businessIncomeIQD + monthlyAdditionalIncomeIQD;
+    } else {
+      return _salaryConfig.monthlySalaryIQD + _salaryConfig.businessIncomeIQD + monthlyAdditionalIncomeIQD;
+    }
   }
 
   // 10. Net Realized Savings
@@ -222,7 +330,7 @@ class AppState extends ChangeNotifier {
     return balance > 0 ? balance : 0.0;
   }
 
-  // 13. Runway Forecast (how many days funds will last at current velocity)
+  // 13. Runway Forecast
   int get runwayForecastDaysUSD {
     final velocity = spendVelocityUSD;
     if (velocity <= 0) return 999;
@@ -246,7 +354,13 @@ class AppState extends ChangeNotifier {
     final savingsRatio = (income - expense) / income;
     final savingsScore = (savingsRatio / 0.20).clamp(0.0, 1.0) * 40;
 
-    final fixedRatio = _salaryConfig.totalFixedExpensesUSD / income;
+    final fixedBillsTotal = _selectedScope == 'business'
+        ? _salaryConfig.totalBusinessFixedExpensesUSD
+        : (_selectedScope == 'personal'
+            ? _salaryConfig.totalFixedExpensesUSD
+            : (_salaryConfig.totalFixedExpensesUSD + _salaryConfig.totalBusinessFixedExpensesUSD));
+
+    final fixedRatio = fixedBillsTotal / income;
     final fixedScore = (1.0 - (fixedRatio / 0.60)).clamp(0.0, 1.0) * 30;
 
     final dailyRatio = todaysExpensesUSD / (dailyAllowanceUSD > 0 ? dailyAllowanceUSD : 1.0);
@@ -263,7 +377,13 @@ class AppState extends ChangeNotifier {
     final savingsRatio = (income - expense) / income;
     final savingsScore = (savingsRatio / 0.20).clamp(0.0, 1.0) * 40;
 
-    final fixedRatio = _salaryConfig.totalFixedExpensesIQD / income;
+    final fixedBillsTotal = _selectedScope == 'business'
+        ? _salaryConfig.totalBusinessFixedExpensesIQD
+        : (_selectedScope == 'personal'
+            ? _salaryConfig.totalFixedExpensesIQD
+            : (_salaryConfig.totalFixedExpensesIQD + _salaryConfig.totalBusinessFixedExpensesIQD));
+
+    final fixedRatio = fixedBillsTotal / income;
     final fixedScore = (1.0 - (fixedRatio / 0.60)).clamp(0.0, 1.0) * 30;
 
     final dailyRatio = todaysExpensesIQD / (dailyAllowanceIQD > 0 ? dailyAllowanceIQD : 1.0);
@@ -276,7 +396,7 @@ class AppState extends ChangeNotifier {
   Map<String, double> getCategoryExpensesBreakdown(String currency) {
     final breakdown = <String, double>{};
     for (var tx in _transactions) {
-      if (!tx.isIncome && tx.currency == currency && _isThisMonth(tx.date)) {
+      if (!tx.isIncome && tx.currency == currency && _isThisMonth(tx.date) && _matchesScope(tx)) {
         breakdown[tx.category] = (breakdown[tx.category] ?? 0.0) + tx.amount;
       }
     }
@@ -305,11 +425,14 @@ class AppState extends ChangeNotifier {
       if (col == 'Type') return isRtl ? 'جۆر' : 'Type';
       if (col == 'Date') return isRtl ? 'ڕێکەوت' : 'Date';
       if (col == 'Currency') return isRtl ? 'دراو' : 'Currency';
+      if (col == 'Scope') return isRtl ? 'بوار (کەسی/کار)' : 'Scope';
+      if (col == 'Payment Method') return isRtl ? 'ڕێگای پارەدان' : 'Payment Method';
+      if (col == 'Contact') return isRtl ? 'ناو / پەیوەندی' : 'Contact';
       return col;
     }).join(',');
     buffer.writeln(headers);
 
-    // Filter List
+    // Filter List (runs against all raw transactions)
     final filteredList = _transactions.where((tx) {
       if (dateRange != null) {
         if (tx.date.isBefore(dateRange.start) || tx.date.isAfter(dateRange.end)) {
@@ -326,6 +449,7 @@ class AppState extends ChangeNotifier {
       if (currencyFilter != null && currencyFilter != 'All') {
         if (tx.currency != currencyFilter) return false;
       }
+      if (!_matchesScope(tx)) return false;
       return true;
     }).toList();
 
@@ -340,6 +464,9 @@ class AppState extends ChangeNotifier {
         if (col == 'Type') return tx.isIncome ? 'Income' : 'Expense';
         if (col == 'Amount') return tx.amount.toStringAsFixed(2);
         if (col == 'Currency') return tx.currency;
+        if (col == 'Scope') return tx.scope;
+        if (col == 'Payment Method') return tx.paymentMethod;
+        if (col == 'Contact') return tx.contact.replaceAll(',', ' ');
         return '';
       }).join(',');
       buffer.writeln(row);
@@ -350,12 +477,12 @@ class AppState extends ChangeNotifier {
 
   String exportToCsv() {
     return exportCustomCsv(
-      selectedColumns: ['Date', 'Title', 'Reason', 'Category', 'Type', 'Amount', 'Currency'],
+      selectedColumns: ['Date', 'Title', 'Reason', 'Category', 'Type', 'Amount', 'Currency', 'Scope', 'Payment Method', 'Contact'],
     );
   }
 
   // ----------------------------------------------------
-  // LOCALIZATION SYSTEM (English & Kurdish Sorani)
+  // LOCALIZATION SYSTEM
   // ----------------------------------------------------
   
   String t(String key) {
@@ -390,9 +517,9 @@ class AppState extends ChangeNotifier {
       'other': 'Other',
       'analysis': 'Analysis',
       'settings': 'Settings',
-      'net_salary': 'Net Monthly Salary',
-      'savings_target': 'Monthly Savings Target',
-      'save_settings': 'Save Salary Settings',
+      'net_salary': 'Net Monthly Salary / Revenue',
+      'savings_target': 'Monthly Savings / Profit Target',
+      'save_settings': 'Save Configuration',
       'fixed_bills': 'FIXED MONTHLY BILLS',
       'no_bills': 'No fixed bills configured yet.',
       'add_bill': 'Add Fixed Bill',
@@ -420,11 +547,11 @@ class AppState extends ChangeNotifier {
       'clear_all': 'Clear All',
       'reset_warning': 'This will permanently delete all salary configurations, fixed bills, and transactions. This action cannot be undone.',
       'reset_confirm': 'Reset All Data?',
-      'food': 'Food',
-      'transport': 'Transport',
-      'rent': 'Rent',
+      'food': 'Food & Groceries',
+      'transport': 'Transportation',
+      'rent': 'Rent & Housing',
       'entertainment': 'Entertainment',
-      'shopping': 'Shopping',
+      'shopping': 'Shopping & Clothes',
       'utilities': 'Utilities',
       'health_excellent': 'Excellent! Highly disciplined.',
       'health_good': 'Good budget balance.',
@@ -443,6 +570,73 @@ class AppState extends ChangeNotifier {
       'this_month': 'This Month',
       'generate_excel': 'Generate & Copy Excel Table',
       'custom_range': 'Custom Date Range',
+
+      // Advanced Keys
+      'scope': 'Scope',
+      'payment_method': 'Payment Method',
+      'contact': 'Contact / Name',
+      'personal': 'Personal / Daily',
+      'business': 'Business',
+      'all_scopes': 'All (Combined)',
+      'cash': 'Cash',
+      'card': 'Card / POS',
+      'transfer': 'Bank Transfer',
+      'debt': 'Debt / Credit',
+      'daily_earnings': 'Daily Earnings',
+      'log_daily_earnings': "Log Day's Earnings",
+      'daily_earnings_desc': 'Enter total money received today in one click',
+      'usd_received': 'USD (\$) Received Today',
+      'iqd_received': 'IQD (د.ع) Received Today',
+      'notes': 'Notes / Context',
+      'daily_sales_notes': 'Shop daily sales and revenues',
+      'budget_mode': 'Daily Budget Mode',
+      'auto_budget': 'Auto-Calculate from Monthly Income',
+      'manual_budget': 'Set Manual Budget Per Day',
+      'personal_daily_budget': 'Personal Daily Budget',
+      'business_daily_budget': 'Business Daily Budget',
+      'configure_personal': 'Configure Personal Wallet',
+      'configure_business': 'Configure Business Wallet',
+      
+      // Category Keys
+      'dining': 'Dining Out',
+      'medical': 'Healthcare & Medical',
+      'education': 'Education',
+      'gift': 'Gifts & Charity',
+      'freelance': 'Freelance / Side Hustle',
+      'investments': 'Investments',
+      'inventory': 'Inventory / Stock',
+      'marketing': 'Marketing & Ads',
+      'salaries': 'Staff Salaries',
+      'software': 'Software & Tools',
+      'logistics': 'Logistics & Shipping',
+      'taxes': 'Taxes & Fees',
+      'office_supplies': 'Office Supplies',
+      'sales_revenue': 'Sales & Revenues',
+      'service_consulting': 'Service & Consulting',
+      'capital': 'Capital Deposit',
+      'refund': 'Refunds',
+      'business_income_lbl': 'Monthly Target Revenue',
+      'business_savings_lbl': 'Monthly Profit Target',
+      
+      // AI Studio Keys
+      'ai_studio': 'AI Studio',
+      'ai_chat': 'AI Financial Chat',
+      'ai_image': 'AI Image Generator',
+      'ai_video': 'AI Video Studio',
+      'ai_audio': 'Kurdish AI Dialogue',
+      'gemini_key_lbl': 'Gemini API Key (Google AI Studio)',
+      'gemini_key_hint': 'Paste API Key for unlimited free live chat...',
+      'enter_key_warning': 'Please set your Gemini API key in Settings or AI Chat to get live responses.',
+      'generate': 'Generate',
+      'prompt': 'Describe what you want to create...',
+      'generating': 'Generating assets via AI...',
+      'video_prompt_lbl': 'Video Scene Description',
+      'image_prompt_lbl': 'Image Art Prompt',
+      'podcast_speakers': 'Select Characters',
+      'podcast_topic': 'Select Debate Topic',
+      'generate_podcast': 'Start AI Conversation',
+      'podcast_playing': 'Playing AI Debate...',
+      'podcast_paused': 'AI Debate Paused',
     },
     'ku': {
       'app_title': 'سەلاريفلۆو',
@@ -470,8 +664,8 @@ class AppState extends ChangeNotifier {
       'other': 'هیتر',
       'analysis': 'شیکاری',
       'settings': 'ڕێکخستنەکان',
-      'net_salary': 'مووچەی مانگانەی پاکت',
-      'savings_target': 'ئامانجی پاشەکەوتی مانگانە',
+      'net_salary': 'مووچە / داهاتی مانگانەی پاکت',
+      'savings_target': 'ئامانجی پاشەکەوت / قازانجی مانگانە',
       'save_settings': 'ڕێکخستنەکان بپارێزە',
       'fixed_bills': 'کرێ و پسوولەی مانگانە',
       'no_bills': 'هیچ پسوولەیەکی مانگانە دیاری نەکراوە',
@@ -500,12 +694,12 @@ class AppState extends ChangeNotifier {
       'clear_all': 'سڕینەوەی گشتی',
       'reset_warning': 'ئەمە هەموو ڕێکخستنەکانی مووچە، پسوولە جێگیرەکان، و مامەڵەکان دەسڕێتەوە بە یەکجاری و ناگەڕێتەوە.',
       'reset_confirm': 'سڕینەوەی هەموو داتاکان؟',
-      'food': 'خۆراک',
-      'transport': 'گواستنەوە',
-      'rent': 'کرێی خانوو',
+      'food': 'خۆراک و سەوزەوات',
+      'transport': 'گواستنەوە و بەنزین',
+      'rent': 'کرێی خانوو / نووسینگە',
       'entertainment': 'کات بەسەربردن',
-      'shopping': 'بازاڕکردن',
-      'utilities': 'خزمەتگوزارییەکان',
+      'shopping': 'جلوبەرگ و بازاڕکردن',
+      'utilities': 'پسوولە و خزمەتگوزاری',
       'health_excellent': 'ناوازەیە! زۆر بە دیسیپلینیت.',
       'health_good': 'تەندروستی دارایی باشە.',
       'health_fair': 'مامناوەندە، وریای خەرجی ڕۆژانە بە.',
@@ -523,6 +717,73 @@ class AppState extends ChangeNotifier {
       'this_month': 'ئەم مانگە',
       'generate_excel': 'دروستکردن و کۆپیکردنی خشتەکە',
       'custom_range': 'دیاریکردنی ماوەی تایبەت',
+
+      // Advanced Keys Kurdish
+      'scope': 'جۆری دارایی',
+      'payment_method': 'شێوازی دان',
+      'contact': 'ناو / کەسی پەیوەندیدار',
+      'personal': 'کەسی / ڕۆژانە',
+      'business': 'کار / بازرگانی',
+      'all_scopes': 'هەردووکی (تێکەڵاو)',
+      'cash': 'نەختینە (کاش)',
+      'card': 'کارت / POS',
+      'transfer': 'حەواڵەی بانکی',
+      'debt': 'قەرز / متمانە',
+      'daily_earnings': 'داهاتی ڕۆژانە',
+      'log_daily_earnings': 'تۆمارکردنی داهاتی ئەمڕۆ',
+      'daily_earnings_desc': 'تۆمارکردنی کۆی پارەی هاتوو بە یەک کلیک',
+      'usd_received': 'کۆی دۆلاری وەرگیراو (\$)',
+      'iqd_received': 'کۆی دیناری وەرگیراو (د.ع)',
+      'notes': 'تێبینی / سەرنج',
+      'daily_sales_notes': 'داهات و فرۆشی ڕۆژانەی دوکان/کۆمپانیا',
+      'budget_mode': 'شێوازی بودجەی ڕۆژانە',
+      'auto_budget': 'ئۆتۆماتیکی لەسەر بنەمای داهاتی مانگانە',
+      'manual_budget': 'دەستنیشانکردنی دەستی ڕۆژانە',
+      'personal_daily_budget': 'بودجەی ڕۆژانەی کەسی',
+      'business_daily_budget': 'بودجەی ڕۆژانەی بازرگانی',
+      'configure_personal': 'ڕێکخستنی جزدانی کەسی',
+      'configure_business': 'ڕێکخستنی جزدانی بازرگانی',
+
+      // Category Keys Kurdish
+      'dining': 'چێشتخانە و کافتەریا',
+      'medical': 'تەندروستی و دەرمان',
+      'education': 'فێربوون و خوێندن',
+      'gift': 'بەخشین و دیاری',
+      'freelance': 'کاری سەربەخۆ / فریلانسی',
+      'investments': 'وەبەرهێنان',
+      'inventory': 'کەلوپەل و مەخزەن',
+      'marketing': 'ڕیکلام و مارکێتینگ',
+      'salaries': 'مووچەی کارمەندان',
+      'software': 'سیستم و پرۆگرام',
+      'logistics': 'گواستنەوە و پۆست',
+      'taxes': 'باج و سەرانە',
+      'office_supplies': 'پێداویستی نووسینگە',
+      'sales_revenue': 'فرۆشتن و داهاتی کار',
+      'service_consulting': 'خزمەتگوزاری و ڕاوێژ',
+      'capital': 'سەرمایەگوزاری سەرەکی',
+      'refund': 'پارەی گەڕاوە',
+      'business_income_lbl': 'داهاتی مانگانەی کار',
+      'business_savings_lbl': 'ئامانجی قازانجی مانگانە',
+      
+      // AI Studio Kurdish Keys
+      'ai_studio': 'ستۆدیۆی زیرەکی',
+      'ai_chat': 'چاتی دارایی AI',
+      'ai_image': 'دروسکردنی وێنە',
+      'ai_video': 'دروسکردنی ڤیدیۆ',
+      'ai_audio': 'دیبەیتی دەنگی کوردی',
+      'gemini_key_lbl': 'کلیلی Gemini API (گووگڵ)',
+      'gemini_key_hint': 'لێرە کلیلەکەت بنووسە بۆ بەکارهێنانی بێسنوور...',
+      'enter_key_warning': 'تکایە کلیلی Gemini API داخڵ بکە لە ڕێکخستنەکان یان لێرە بۆ وەڵامی ڕاستەوخۆ.',
+      'generate': 'دروستکردن',
+      'prompt': 'وەسفی کارەکە بکە لێرەدا...',
+      'generating': 'ژیری دەستکرد خەریکی کارە...',
+      'video_prompt_lbl': 'وەسفی دیمەنی ڤیدیۆیی',
+      'image_prompt_lbl': 'وەسفی بابەت بۆ وێنەکە',
+      'podcast_speakers': 'دیاریکردنی کەسایەتییەکان',
+      'podcast_topic': 'دیاریکردنی بابەتی گفتوگۆ',
+      'generate_podcast': 'دەستپێکردنی گفتوگۆی ژیری',
+      'podcast_playing': 'گفتوگۆکە پەخش دەبێت...',
+      'podcast_paused': 'گفتوگۆکە ڕاگیرا',
     }
   };
 }

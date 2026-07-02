@@ -9,6 +9,9 @@ class Transaction {
   final DateTime date;
   final String description;
   final String currency; // 'USD' or 'IQD'
+  final String scope; // 'personal' or 'business'
+  final String paymentMethod; // 'Cash', 'Card', 'Transfer', 'Debt'
+  final String contact; // counterparty or customer name (optional)
 
   Transaction({
     required this.id,
@@ -19,6 +22,9 @@ class Transaction {
     required this.date,
     this.description = '',
     this.currency = 'USD', // Default to USD for old stored items compatibility
+    this.scope = 'personal',
+    this.paymentMethod = 'Cash',
+    this.contact = '',
   });
 
   Map<String, dynamic> toMap() {
@@ -31,6 +37,9 @@ class Transaction {
       'date': date.toIso8601String(),
       'description': description,
       'currency': currency,
+      'scope': scope,
+      'paymentMethod': paymentMethod,
+      'contact': contact,
     };
   }
 
@@ -44,6 +53,9 @@ class Transaction {
       date: DateTime.parse(map['date'] ?? DateTime.now().toIso8601String()),
       description: map['description'] ?? '',
       currency: map['currency'] ?? 'USD', // Default to USD if missing
+      scope: map['scope'] ?? 'personal',
+      paymentMethod: map['paymentMethod'] ?? 'Cash',
+      contact: map['contact'] ?? '',
     );
   }
 
