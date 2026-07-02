@@ -31,17 +31,28 @@ class SalaryFlowApp extends StatelessWidget {
     return MaterialApp(
       title: 'SalaryFlow',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData.dark().copyWith(
-        scaffoldBackgroundColor: const Color(0xFF07080F),
+      themeMode: ThemeMode.dark,
+      theme: ThemeData(
+        brightness: Brightness.light,
+        scaffoldBackgroundColor: const Color(0xFFF8FAFC),
+        colorScheme: const ColorScheme.light(
+          primary: Color(0xFF0D9488),
+          secondary: Color(0xFF0284C7),
+          surface: Colors.white,
+          onSurface: const Color(0xFF0F172A),
+        ),
+        textTheme: GoogleFonts.outfitTextTheme(ThemeData.light().textTheme),
+      ),
+      darkTheme: ThemeData(
+        brightness: Brightness.dark,
+        scaffoldBackgroundColor: const Color(0xFF0F172A),
         colorScheme: const ColorScheme.dark(
-          primary: Color(0xFF10B981),
-          secondary: Color(0xFF0D9488),
-          surface: Color(0xFF111422),
+          primary: Color(0xFF0D9488),
+          secondary: Color(0xFF38BDF8),
+          surface: const Color(0xFF1E293B),
           onSurface: Colors.white,
         ),
-        textTheme: GoogleFonts.outfitTextTheme(
-          ThemeData.dark().textTheme,
-        ),
+        textTheme: GoogleFonts.outfitTextTheme(ThemeData.dark().textTheme),
       ),
       home: const MainNavigationShell(),
     );

@@ -1,3 +1,5 @@
+#if false // Wrap entire file to prevent compilation errors in the main target (uncomment/enable when compiling in your separate Widget target)
+
 import WidgetKit
 import SwiftUI
 
@@ -95,8 +97,8 @@ struct SalaryFlowWidgetEntryView : View {
                         Text(entry.runwayForecastDays >= 999 
                              ? "Runway: Infinite" 
                              : "Runway: \(entry.runwayForecastDays) Days")
-                            .font(.system(size: 9, weight: .bold))
-                            .foregroundColor(Color(red: 0.06, green: 0.73, blue: 0.51))
+                             .font(.system(size: 9, weight: .bold))
+                             .foregroundColor(Color(red: 0.06, green: 0.73, blue: 0.51))
                     }
                     
                     Spacer()
@@ -140,13 +142,6 @@ struct WidgetActionButton: View {
     }
 }
 
-@main
-struct SalaryFlowWidgetBundle: WidgetBundle {
-    var body: some Widget {
-        SalaryFlowWidget()
-    }
-}
-
 struct SalaryFlowWidget: Widget {
     let kind: String = "SalaryFlowWidget"
 
@@ -159,3 +154,5 @@ struct SalaryFlowWidget: Widget {
         .supportedFamilies([.systemMedium])
     }
 }
+
+#endif

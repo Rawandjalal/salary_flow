@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 
 class GlassCard extends StatelessWidget {
@@ -13,34 +12,39 @@ class GlassCard extends StatelessWidget {
   const GlassCard({
     super.key,
     required this.child,
-    this.blur = 20.0,
-    this.opacity = 0.07,
-    this.color = Colors.white,
-    this.borderRadius = 24.0,
+    this.blur = 0.0,
+    this.opacity = 1.0,
+    this.color = Colors.transparent,
+    this.borderRadius = 16.0,
     this.padding = const EdgeInsets.all(20.0),
     this.border,
   });
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(borderRadius),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
-        child: Container(
-          padding: padding,
-          decoration: BoxDecoration(
-            color: color.withOpacity(opacity),
-            borderRadius: BorderRadius.circular(borderRadius),
-            border: border ??
-                Border.all(
-                  color: Colors.white.withOpacity(0.1),
-                  width: 1.2,
-                ),
-          ),
-          child: child,
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return Container(
+      padding: padding,
+      decoration: BoxDecoration(
+        color: color != Colors.transparent
+            ? color
+            : (isDark ? const Color(0xFF1E293B) : Colors.white),
+        borderRadius: BorderRadius.circular(borderRadius),
+        border: border ?? Border.all(
+          color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+          width: 1.0,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(isDark ? 0.2 : 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
+      child: child,
     );
   }
 }
