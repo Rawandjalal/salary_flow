@@ -12,7 +12,12 @@ class AiService {
     required String activeScope,
   }) async {
     if (apiKey.isEmpty) {
-      return _getLocalFallbackChat(userMessage, activeScope);
+      return getFreePollinationsTextResponse(
+        userMessage: userMessage,
+        chatHistory: chatHistory,
+        transactions: transactions,
+        activeScope: activeScope,
+      );
     }
 
     final url = Uri.parse(
@@ -99,7 +104,11 @@ class AiService {
     required List<Transaction> transactions,
   }) async {
     if (apiKey.isEmpty) {
-      return _getLocalFallbackDebate(topic, speakers);
+      return getFreePollinationsDebateScript(
+        topic: topic,
+        speakers: speakers,
+        transactions: transactions,
+      );
     }
 
     final url = Uri.parse(
@@ -120,7 +129,7 @@ class AiService {
       'Example structure:\n'
       '[\n'
       '  {"speaker": "${speakers[0]}", "text": "ڕای ئێوە چییە لەسەر ئەمە؟"},\n'
-      '  {"speaker": "${speakers[1]}", "text": "من پێم وایە پێویستە زیاتر ئاگاداری خەرجییەکان بین..."}\n'
+      '  {"speaker": "${speakers[1]}", "text": "من پێم وایە پێویستە زیادکردن یان کەمکردنەوە..."}\n'
       ']';
 
     try {
@@ -155,6 +164,127 @@ class AiService {
       // Fallback on timeout or parse error
     }
 
+    return getFreePollinationsDebateScript(
+      topic: topic,
+      speakers: speakers,
+      transactions: transactions,
+    );
+  }
+
+  /// Calls the free, keyless Pollinations Text AI API to get a chat response
+  static Future<String> getFreePollinationsTextResponse({
+    required String userMessage,
+    required List<Map<String, String>> chatHistory,
+    required List<Transaction> transactions,
+    required String activeScope,
+  }) async {
+    final url = Uri.parse('https://text.pollinations.ai/');
+    
+    final txSummary = transactions.map((t) {
+      return '${t.date.toIso8601String().split('T')[0]}: ${t.scope.toUpperCase()} - ${t.isIncome ? 'INCOME' : 'EXPENSE'} - ${t.category} - ${t.amount} ${t.currency} (${t.title})';
+    }).join('\n');
+
+    final systemInstruction = 
+      'You are a professional financial advisor and business analyst for the application SalaryFlow. '
+      'The user is managing their budgets in USD and IQD. '
+      'Current active view scope: $activeScope. '
+      'Here is the user\'s transaction ledger data for context:\n$txSummary\n\n'
+      'CRITICAL: Answer in Kurdish (Soranî dialect written in Arabic script) in a friendly, professional tone. '
+      'If the user asks a question in English or Arabic, you can write the analysis in Kurdish but keep key terms understandable. '
+      'Give highly practical money-saving advice, business optimization steps, and budget insights.';
+
+    final List<Map<String, String>> messages = [];
+    messages.add({'role': 'system', 'content': systemInstruction});
+
+    for (final msg in chatHistory) {
+      messages.add({
+        'role': msg['sender'] == 'user' ? 'user' : 'assistant',
+        'content': msg['text']!,
+      });
+    }
+
+    messages.add({
+      'role': 'user',
+      'content': userMessage,
+    });
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'messages': messages,
+          'model': 'openai',
+        }),
+      ).timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        return response.body;
+      } else {
+        return _getLocalFallbackChat(userMessage, activeScope);
+      }
+    } catch (e) {
+      return _getLocalFallbackChat(userMessage, activeScope);
+    }
+  }
+
+  /// Calls the free, keyless Pollinations Text AI API to generate a podcast debate script in Kurdish
+  static Future<List<Map<String, String>>> getFreePollinationsDebateScript({
+    required String topic,
+    required List<String> speakers,
+    required List<Transaction> transactions,
+  }) async {
+    final url = Uri.parse('https://text.pollinations.ai/');
+
+    final txSummary = transactions.take(15).map((t) {
+      return '${t.category}: ${t.amount} ${t.currency} (${t.title})';
+    }).join(', ');
+
+    final prompt = 
+      'Write a scripted podcast dialogue in Kurdish (Soranî dialect) about the topic: "$topic".\n'
+      'The speakers are: ${speakers.join(', ')}.\n'
+      'Some transactions context to debate: $txSummary.\n'
+      'Make it a lively debate! Let them disagree on budget management, shop pricing, or savings. '
+      'Format the output strictly in JSON so I can parse it in my app. Do not write markdown blocks or any other explanation, only valid JSON list.\n'
+      'The JSON must be a list of dialogue entries with keys "speaker" and "text".\n'
+      'Example structure:\n'
+      '[\n'
+      '  {"speaker": "${speakers[0]}", "text": "ڕای ئێوە چییە لەسەر ئەمە؟"},\n'
+      '  {"speaker": "${speakers[1]}", "text": "من پێم وایە پێویستە..."}\n'
+      ']';
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'messages': [
+            {'role': 'user', 'content': prompt}
+          ],
+          'model': 'openai',
+          'jsonMode': true
+        }),
+      ).timeout(const Duration(seconds: 20));
+
+      if (response.statusCode == 200) {
+        final jsonText = response.body;
+        String cleanJson = jsonText;
+        if (jsonText.contains('```json')) {
+          cleanJson = jsonText.split('```json')[1].split('```')[0].trim();
+        } else if (jsonText.contains('```')) {
+          cleanJson = jsonText.split('```')[1].split('```')[0].trim();
+        }
+        final decodedList = jsonDecode(cleanJson) as List;
+        return decodedList.map((item) {
+          return {
+            'speaker': item['speaker'].toString(),
+            'text': item['text'].toString(),
+          };
+        }).toList();
+      }
+    } catch (e) {
+      // Fallback
+    }
     return _getLocalFallbackDebate(topic, speakers);
   }
 
