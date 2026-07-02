@@ -8,11 +8,27 @@ on:
 jobs:
   build:
     name: Build iOS Application
-    runs-on: macos-15
+    runs-on: macos-14
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Select Xcode 15
+        run: |
+          # Ensure we use the full Xcode.app (not CLT) which has all SDK specs
+          XCODE=$(ls -d /Applications/Xcode_15*.app 2>/dev/null | sort -r | head -1)
+          if [ -z "$XCODE" ]; then
+            XCODE=$(ls -d /Applications/Xcode*.app 2>/dev/null | sort -r | head -1)
+          fi
+          echo "Selecting Xcode: $XCODE"
+          sudo xcode-select -s "$XCODE/Contents/Developer"
+          xcode-select -p
+          xcodebuild -version
+          # Verify WidgetKit spec is present
+          find "$XCODE" -name "*.xcspec" 2>/dev/null | xargs grep -l "widgetkit-extension" 2>/dev/null \
+            && echo "✅ WidgetKit spec found" \
+            || echo "⚠️  WidgetKit spec not found in $XCODE"
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
@@ -23,19 +39,22 @@ jobs:
       - name: Install Flutter dependencies
         run: flutter pub get
 
-      - name: Build iOS App
-        # The WidgetKit extension target is permanently embedded in project.pbxproj.
-        # Flutter's exit code 1 can mean a real failure OR just a signing complaint;
-        # we capture the log and check for real build failures explicitly.
+      - name: Verify widget target in project
+        run: |
+          grep -c "widgetkit-extension" ios/Runner.xcodeproj/project.pbxproj \
+            && echo "✅ WidgetKit target is in project.pbxproj" \
+            || (echo "❌ WidgetKit target MISSING from project.pbxproj"; exit 1)
+
+      - name: Build iOS App (Runner + Widget)
         run: |
           flutter build ios --release --no-codesign 2>&1 | tee flutter_build.log || true
-          if grep -q "Failed to build iOS app" flutter_build.log && ! grep -q "warning: no provisioning" flutter_build.log; then
+          # Fail on real build errors (not just signing complaints)
+          if grep -q "Failed to build iOS app" flutter_build.log; then
             echo "=== BUILD FAILED ==="
-            grep "Error" flutter_build.log | tail -20
+            grep -E "^Error|error:" flutter_build.log | tail -30
             exit 1
           fi
-          echo "Build completed (signing warnings are expected in CI)"
-
+          echo "✅ Build completed"
 
       - name: Find Runner.app (debug)
         run: |
@@ -53,6 +72,7 @@ jobs:
             -not -path "*/Index.noindex/*" 2>/dev/null | while read p; do
             echo "  Path : $p"
             echo "  Info.plist: $(test -f "$p/Info.plist" && echo YES || echo NO)"
+            echo "  PlugIns: $(ls "$p/PlugIns" 2>/dev/null || echo none)"
           done
 
       - name: Create IPA
@@ -89,7 +109,10 @@ jobs:
           fi
 
           echo "=== App bundle contents ==="
-          ls -lh "$APP_PATH" | head -20
+          ls -lh "$APP_PATH"
+          echo ""
+          echo "=== PlugIns (widget extensions) ==="
+          ls -lh "$APP_PATH/PlugIns" 2>/dev/null || echo "(no PlugIns directory)"
 
           mkdir -p Payload
           cp -r "$APP_PATH" Payload/Runner.app
@@ -113,4 +136,3 @@ jobs:
           name: flutter-build-log
           path: flutter_build.log
           retention-days: 7
-
