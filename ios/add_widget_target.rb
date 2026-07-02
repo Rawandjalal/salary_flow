@@ -89,35 +89,21 @@ runner_target.build_configurations.each do |cfg|
 end
 
 # Target dependency
-proxy = project.new(Xcodeproj::Project::Object::PBXContainerItemProxy)
-proxy.container_portal    = project.root_object
-proxy.proxy_type          = '1'
-proxy.remote_global_id_string = widget_target.uuid
-proxy.remote_info         = WIDGET_NAME
-
-dep = project.new(Xcodeproj::Project::Object::PBXTargetDependency)
-dep.target       = widget_target
-dep.target_proxy = proxy
-runner_target.dependencies << dep
+runner_target.add_dependency(widget_target)
 
 # Embed App Extensions build phase
-embed_phase = runner_target.build_phases.find do |phase|
-  phase.is_a?(Xcodeproj::Project::Object::PBXCopyFilesBuildPhase) &&
-    phase.name == 'Embed Foundation Extensions'
+embed_phase = runner_target.copy_files_build_phases.find do |phase|
+  phase.name == 'Embed Foundation Extensions'
 end
 
 unless embed_phase
-  embed_phase = project.new(Xcodeproj::Project::Object::PBXCopyFilesBuildPhase)
-  embed_phase.name             = 'Embed Foundation Extensions'
-  embed_phase.dst_path         = ''
-  embed_phase.dst_subfolder_spec = '13'  # PlugIns
-  runner_target.build_phases << embed_phase
+  embed_phase = runner_target.new_copy_files_build_phase('Embed Foundation Extensions')
+  embed_phase.dst_subfolder_spec = '13' # PlugIns
 end
 
-embed_file                = project.new(Xcodeproj::Project::Object::PBXBuildFile)
-embed_file.file_ref       = widget_target.product_reference
-embed_file.settings       = { 'ATTRIBUTES' => ['RemoveHeadersOnCopy'] }
-embed_phase.files         << embed_file
+build_file = embed_phase.add_file_reference(widget_target.product_reference)
+build_file.settings = { 'ATTRIBUTES' => ['RemoveHeadersOnCopy'] }
+
 
 # ── Save ─────────────────────────────────────────────────────────────────────
 project.save

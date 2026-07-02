@@ -23,11 +23,18 @@ jobs:
       - name: Install Flutter dependencies
         run: flutter pub get
 
+      - name: Install xcodeproj gem
+        run: gem install xcodeproj --no-document
+
+      - name: Add WidgetKit extension target
+        run: ruby ios/add_widget_target.rb
+
       - name: Build iOS App
         # Flutter exits with code 1 after xcodebuild succeeds because of its
         # own signing validator. We suppress that exit code with || true.
         # The fully-built Runner.app (with Info.plist) lives in DerivedData.
         run: flutter build ios --release --no-codesign 2>&1 | tee flutter_build.log || true
+
 
       - name: Find Runner.app (debug)
         run: |
@@ -97,3 +104,12 @@ jobs:
           name: SalaryFlow-iOS-IPA
           path: SalaryFlow.ipa
           retention-days: 30
+
+      - name: Upload build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: flutter-build-log
+          path: flutter_build.log
+          retention-days: 7
+
