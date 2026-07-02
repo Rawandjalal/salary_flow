@@ -214,7 +214,7 @@
 			name = SalaryFlowWidget;
 			productName = SalaryFlowWidget;
 			productReference = SF00000000000000000000F2 /* SalaryFlowWidget.appex */;
-			productType = "com.apple.product-type.widgetkit-extension";
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
